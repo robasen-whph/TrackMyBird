@@ -1,0 +1,5 @@
+{
+  "OS_CLIENT_ID": "nycrobaviation-api-client",
+  "OS_CLIENT_SECRET": "FwwMtVdibhXWnUSecaPGJj1r4xSi2MIQ",
+  "OS_TOKEN_URL": "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
+}
