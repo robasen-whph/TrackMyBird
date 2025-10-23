@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
+import { readFileSync } from "fs";
+import { join } from "path";
+
+// Read config.json server-side only (not bundled with client)
+function getConfig() {
+  const configPath = join(process.cwd(), "config.json");
+  const configFile = readFileSync(configPath, "utf-8");
+  return JSON.parse(configFile);
+}
 
 // ---- OAuth token ----
 async function getToken() {
-  const id = process.env.OPENSKY_CLIENT_ID!;
-  const secret = process.env.OPENSKY_CLIENT_SECRET!;
+  const config = getConfig();
+  const id = config.OS_CLIENT_ID;
+  const secret = config.OS_CLIENT_SECRET;
   const body = new URLSearchParams({
     grant_type: "client_credentials",
     client_id: id,
