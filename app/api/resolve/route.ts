@@ -10,8 +10,13 @@ export async function GET(req: Request) {
   // OpenSky metadata supports registration → icao24 on many aircraft
   // Endpoint: /api/metadata/aircraft/registration/{reg}
   try {
-    const meta = await osGet(`https://opensky-network.org/api/metadata/aircraft/registration/${encodeURIComponent(tail)}`);
-    if (meta?.icao24) return NextResponse.json({ hex: String(meta.icao24).toLowerCase(), meta });
+    const r = await fetch(
+      `https://opensky-network.org/api/metadata/aircraft/registration/${encodeURIComponent(tail)}`,
+      { headers: { Accept: "application/json" }, cache: "no-store" }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const meta = await r.json();
+    if (meta?.icao24) return NextResponse.json({ hex: String(meta.icao24).toLowerCase(), tail, meta });
   } catch {}
 
   return NextResponse.json({ error:"not_found" }, { status:404 });

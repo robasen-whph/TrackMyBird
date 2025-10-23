@@ -44,7 +44,7 @@ function FitBounds({ points }: { points: Point[] }) {
   useEffect(() => {
     if (!points?.length) return;
     const latlngs = points.map(p => [p.lat, p.lon]) as LatLngExpression[];
-    const bounds = L.latLngBounds(latlngs as LatLngBoundsExpression);
+    const bounds = L.latLngBounds(latlngs);
     if (latlngs.length === 1) {
       map.setView(latlngs[0] as any, 10, { animate: true });
     } else {
