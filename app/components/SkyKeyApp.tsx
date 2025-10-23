@@ -36,24 +36,37 @@ type Track = {
 type ApiError = { message?: string };
 
 // ---------- Icons ----------
-const pin = (fill: string) =>
-  new L.DivIcon({
-    className: '',
-    html: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='28' height='28'>
-      <path fill='${fill}' stroke='black' stroke-width='1' d='M12 2c-3.31 0-6 2.69-6 6 0 4.5 6 12 6 12s6-7.5 6-12c0-3.31-2.69-6-6-6zm0 8.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z'/>
-    </svg>`,
-    iconAnchor: [14, 28],
-  });
+const originPin = new L.DivIcon({
+  className: '',
+  html: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='36' height='36'>
+    <circle cx='16' cy='16' r='14' fill='#10b981' stroke='white' stroke-width='2'/>
+    <circle cx='16' cy='16' r='8' fill='white' opacity='0.9'/>
+    <text x='16' y='20' text-anchor='middle' font-size='14' font-weight='bold' fill='#10b981'>O</text>
+  </svg>`,
+  iconAnchor: [18, 36],
+});
+
+const destinationPin = new L.DivIcon({
+  className: '',
+  html: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='36' height='36'>
+    <path fill='#ef4444' stroke='white' stroke-width='2' d='M16 2c-4.5 0-8 3.5-8 8 0 6 8 16 8 16s8-10 8-16c0-4.5-3.5-8-8-8z'/>
+    <circle cx='16' cy='10' r='4' fill='white'/>
+  </svg>`,
+  iconAnchor: [18, 36],
+});
 
 const planeIcon = (heading?: number) =>
   new L.DivIcon({
     className: '',
     html: `<div style="transform: rotate(${heading ?? 0}deg); transform-origin: center;">
-      <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='30' height='30'>
-        <path fill='dodgerblue' stroke='black' stroke-width='1' d='M21 16v2l-8-2-4 4H7l2-5-6-1-1-2 7-1L7 2h2l4 8 8-2v2l-7 3 7 3z'/>
+      <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='42' height='42'>
+        <g transform='translate(24, 24)'>
+          <path fill='#3b82f6' stroke='white' stroke-width='2' d='M0,-18 L-4,-8 L-12,-6 L-12,-2 L-4,-4 L-4,8 L-6,12 L-2,12 L0,10 L2,12 L6,12 L4,8 L4,-4 L12,-2 L12,-6 L4,-8 Z'/>
+          <circle cx='0' cy='-2' r='3' fill='white' opacity='0.8'/>
+        </g>
       </svg>
     </div>`,
-    iconAnchor: [15, 15],
+    iconAnchor: [21, 21],
   });
 
 // ---------- Map helpers ----------
@@ -366,10 +379,10 @@ useEffect(() => {
               attribution="&copy; OpenStreetMap"
             />
             {points.length > 0 && <FitBounds points={points} />}
-            {polyline.length > 1 && <Polyline positions={polyline} weight={3} opacity={0.8} />}
-            {origin && <Marker position={[origin.lat, origin.lon]} icon={pin('#10b981')} />}
+            {polyline.length > 1 && <Polyline positions={polyline} color="#a855f7" weight={4} opacity={0.9} />}
+            {origin && <Marker position={[origin.lat, origin.lon]} icon={originPin} />}
             {destination && (
-              <Marker position={[destination.lat, destination.lon]} icon={pin('#ef4444')} />
+              <Marker position={[destination.lat, destination.lon]} icon={destinationPin} />
             )}
             {current && <Marker position={[current.lat, current.lon]} icon={planeIcon(current.hdg)} />}
           </MapContainer>

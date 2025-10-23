@@ -1,2 +1,15 @@
 @import "tailwindcss";
 html, body, #__next { height: 100%; }
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  min-height: 400px;
+}
+
+@media (max-width: 768px) {
+  .leaflet-container {
+    min-height: 500px;
+    height: calc(100vh - 200px);
+  }
+}
