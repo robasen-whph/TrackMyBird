@@ -24,6 +24,26 @@ async function getJSON<T>(url: string, headers: Record<string, string>) {
   return r.json() as Promise<T>;
 }
 
+async function fetchAirportInfo(icao: string) {
+  try {
+    const r = await fetch(
+      `https://airport-data.com/api/ap_info.json?icao=${icao}`,
+      { cache: "force-cache", next: { revalidate: 86400 } }
+    );
+    if (!r.ok) return null;
+    const data: any = await r.json();
+    return {
+      icao: data.icao || icao,
+      name: data.name || icao,
+      city: data.location || undefined,
+      country: data.country || "Unknown",
+      country_code: data.country_code || "XX",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const hex = (searchParams.get("hex") || "").toLowerCase();
@@ -32,6 +52,10 @@ export async function GET(req: Request) {
   // try OAuth tracks at several times
   let points: Array<{ lat: number; lon: number; ts?: number; alt_ft?: number; hdg?: number; gs_kt?: number }> = [];
   let tail: string | null = null;
+  let originAirport: string | null = null;
+  let destinationAirport: string | null = null;
+  let firstSeen: number | null = null;
+  let lastSeen: number | null = null;
 
   try {
     const token = await getToken();
@@ -39,6 +63,27 @@ export async function GET(req: Request) {
 
     const now = Math.floor(Date.now() / 1000);
     const tries = [0, now, now - 1800, now - 3600, now - 2 * 3600];
+
+    // Try to get flight data for origin/destination
+    try {
+      const begin = now - 7 * 24 * 3600; // last 7 days
+      const end = now;
+      const flights: any = await getJSON<any>(
+        `https://opensky-network.org/api/flights/aircraft?icao24=${hex}&begin=${begin}&end=${end}`,
+        auth
+      );
+      
+      if (flights && flights.length > 0) {
+        const latestFlight = flights[flights.length - 1];
+        originAirport = latestFlight.estDepartureAirport || null;
+        destinationAirport = latestFlight.estArrivalAirport || null;
+        firstSeen = latestFlight.firstSeen || null;
+        lastSeen = latestFlight.lastSeen || null;
+        tail = latestFlight.callsign?.trim() || tail;
+      }
+    } catch (e) {
+      // flight data not available, continue
+    }
 
     for (const t of tries) {
       try {
@@ -58,7 +103,7 @@ export async function GET(req: Request) {
               gs_kt: undefined,
             }))
             .filter((pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lon));
-          tail = trk?.callsign ?? null;
+          tail = trk?.callsign ?? tail;
           if (points.length) break;
         }
       } catch (e) {
@@ -93,9 +138,26 @@ export async function GET(req: Request) {
     } catch {}
   }
 
+  // Fetch airport info if we have airport codes
+  let originInfo = null;
+  let destinationInfo = null;
+  
+  if (originAirport) {
+    originInfo = await fetchAirportInfo(originAirport);
+  }
+  if (destinationAirport) {
+    destinationInfo = await fetchAirportInfo(destinationAirport);
+  }
+
   return NextResponse.json({
     hex: hex.toUpperCase(),
     tail,
     points,
+    originAirport,
+    destinationAirport,
+    originInfo,
+    destinationInfo,
+    firstSeen,
+    lastSeen,
   });
 }

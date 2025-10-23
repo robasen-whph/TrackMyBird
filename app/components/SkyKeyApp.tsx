@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L, { LatLngBoundsExpression, LatLngExpression } from 'leaflet';
+import { Eye, EyeOff } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 // ---------- Types ----------
@@ -14,7 +15,24 @@ type Point = {
   gs_kt?: number;
   hdg?: number;
 };
-type Track = { hex: string; tail?: string | null; points: Point[] };
+type AirportInfo = {
+  icao: string;
+  name: string;
+  city?: string;
+  country: string;
+  country_code: string;
+};
+type Track = {
+  hex: string;
+  tail?: string | null;
+  points: Point[];
+  originAirport?: string | null;
+  destinationAirport?: string | null;
+  originInfo?: AirportInfo | null;
+  destinationInfo?: AirportInfo | null;
+  firstSeen?: number | null;
+  lastSeen?: number | null;
+};
 type ApiError = { message?: string };
 
 // ---------- Icons ----------
@@ -107,6 +125,38 @@ function mockFetch(url: string) {
   return Promise.reject(new Error('Unknown mock route'));
 }
 
+// ---------- Helpers ----------
+function formatAirport(info: AirportInfo | null | undefined, icao: string | null | undefined): string {
+  if (!info && !icao) return 'Unknown';
+  if (!info) return icao || 'Unknown';
+  
+  const isUS = info.country_code === 'US';
+  const parts = [info.icao, info.name];
+  if (!isUS && info.country) {
+    parts.push(info.country);
+  }
+  return parts.join(' - ');
+}
+
+function formatTime(ts: number | null | undefined): string {
+  if (!ts) return '—';
+  const date = new Date(ts * 1000);
+  return date.toLocaleString('en-US', { 
+    month: 'short', day: 'numeric', 
+    hour: '2-digit', minute: '2-digit',
+    timeZoneName: 'short'
+  });
+}
+
+function formatDuration(seconds: number | null | undefined): string {
+  if (!seconds || seconds < 0) return '—';
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  return `${hrs}h ${mins}m`;
+}
+
+const VERSION = '0.3';
+
 // ---------- UI ----------
 export default function SkyKeyApp() {
   const [hex, setHex] = useState('');
@@ -115,6 +165,13 @@ export default function SkyKeyApp() {
   const [error, setError] = useState<string | null>(null);
   const [track, setTrack] = useState<Track | null>(null);
   const [livePoints, setLivePoints] = useState<Point[]>([]);
+  const [showVersion, setShowVersion] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('skykey-show-version');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
+  });
 
   // sanitize points to avoid toFixed on undefined
 const rawPoints = (track?.points?.length ? track.points : livePoints) ?? [];
@@ -125,6 +182,21 @@ const points = useMemo(
 const origin = points[0];
 const current = points[points.length - 1];
 const destination = points.length > 1 ? points[points.length - 1] : undefined;
+
+// Flight timing calculations
+const now = Math.floor(Date.now() / 1000);
+const departureTime = track?.firstSeen;
+const arrivalTime = track?.lastSeen;
+const duration = (departureTime && arrivalTime) ? arrivalTime - departureTime : null;
+const isFlightCompleted = arrivalTime && arrivalTime < now;
+const timeRemaining = (arrivalTime && !isFlightCompleted) ? arrivalTime - now : null;
+
+// Save version toggle preference
+useEffect(() => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('skykey-show-version', String(showVersion));
+  }
+}, [showVersion]);
 
 
 
@@ -237,7 +309,10 @@ useEffect(() => {
             <label className="text-xs">Tail</label>
             <input
               value={tail}
-              onChange={e => setTail(e.target.value.toUpperCase())}
+              onChange={e => {
+                setTail(e.target.value.toUpperCase());
+                if (e.target.value && hex) setHex('');
+              }}
                 onKeyDown={onTailKeyDown}
                placeholder="N123AB"
               className="px-3 py-2 border rounded w-40"
@@ -255,7 +330,10 @@ useEffect(() => {
             <label className="text-xs">Hex</label>
             <input
               value={hex}
-              onChange={e => setHex(e.target.value.toUpperCase())}
+              onChange={e => {
+                setHex(e.target.value.toUpperCase());
+                if (e.target.value && tail) setTail('');
+              }}
               onKeyDown={onHexKeyDown}
               placeholder="ABC123"
               className="px-3 py-2 border rounded w-36"
@@ -297,43 +375,97 @@ useEffect(() => {
           </MapContainer>
         </section>
 
-        <aside className="p-4 border-l bg-white">
+        <aside className="p-4 border-l bg-white overflow-y-auto">
           <h2 className="font-medium mb-2">Flight</h2>
           {error && <div className="text-red-600 text-sm mb-2">{error}</div>}
-          <dl className="text-sm grid grid-cols-3 gap-2">
-            <dt className="text-slate-500">HEX</dt>
-            <dd className="col-span-2">{track?.hex || '—'}</dd>
+          <dl className="text-sm space-y-3">
+            <div>
+              <dt className="text-slate-500 font-medium">HEX</dt>
+              <dd className="mt-0.5">{track?.hex || '—'}</dd>
+            </div>
 
-            <dt className="text-slate-500">Tail</dt>
-            <dd className="col-span-2">{track?.tail || '—'}</dd>
+            <div>
+              <dt className="text-slate-500 font-medium">Tail</dt>
+              <dd className="mt-0.5">{track?.tail || '—'}</dd>
+            </div>
 
-            <dt className="text-slate-500">Points</dt>
-            <dd className="col-span-2">{points.length}</dd>
+            <div className="pt-2 border-t">
+              <dt className="text-slate-500 font-medium">Origin</dt>
+              <dd className="mt-0.5 text-xs leading-relaxed">
+                {formatAirport(track?.originInfo, track?.originAirport)}
+              </dd>
+            </div>
 
-            <dt className="text-slate-500">Origin</dt>
-            <dd className="col-span-2">
-              {origin ? `${origin.lat.toFixed(3)}, ${origin.lon.toFixed(3)}` : '—'}
-            </dd>
+            <div>
+              <dt className="text-slate-500 font-medium">Destination</dt>
+              <dd className="mt-0.5 text-xs leading-relaxed">
+                {formatAirport(track?.destinationInfo, track?.destinationAirport)}
+              </dd>
+            </div>
 
-            <dt className="text-slate-500">Current</dt>
-            <dd className="col-span-2">
-              {current ? `${current.lat.toFixed(3)}, ${current.lon.toFixed(3)}` : '—'}
-            </dd>
+            <div className="pt-2 border-t">
+              <dt className="text-slate-500 font-medium">Departure</dt>
+              <dd className="mt-0.5 text-xs">{formatTime(departureTime)}</dd>
+            </div>
 
-            <dt className="text-slate-500">Alt</dt>
-            <dd className="col-span-2">{Number.isFinite(current?.alt_ft) ? `${current!.alt_ft} ft` : '—'}</dd>
+            <div>
+              <dt className="text-slate-500 font-medium">Arrival (Est)</dt>
+              <dd className="mt-0.5 text-xs">{formatTime(arrivalTime)}</dd>
+            </div>
 
-            <dt className="text-slate-500">GS</dt>
-            <dd className="col-span-2">{Number.isFinite(current?.gs_kt) ? `${current!.gs_kt} kt` : '—'}</dd>
+            <div>
+              <dt className="text-slate-500 font-medium">Duration</dt>
+              <dd className="mt-0.5">{formatDuration(duration)}</dd>
+            </div>
 
-            <dt className="text-slate-500">Hdg</dt>
-            <dd className="col-span-2">{Number.isFinite(current?.hdg) ? current!.hdg : '—'}</dd>
+            <div>
+              <dt className="text-slate-500 font-medium">Time Remaining</dt>
+              <dd className="mt-0.5">{formatDuration(timeRemaining)}</dd>
+            </div>
+
+            <div className="pt-2 border-t">
+              <dt className="text-slate-500 font-medium">Track Points</dt>
+              <dd className="mt-0.5">{points.length}</dd>
+            </div>
+
+            <div>
+              <dt className="text-slate-500 font-medium">Current Position</dt>
+              <dd className="mt-0.5 text-xs">
+                {current ? `${current.lat.toFixed(3)}, ${current.lon.toFixed(3)}` : '—'}
+              </dd>
+            </div>
+
+            <div>
+              <dt className="text-slate-500 font-medium">Altitude</dt>
+              <dd className="mt-0.5">{Number.isFinite(current?.alt_ft) ? `${current!.alt_ft} ft` : '—'}</dd>
+            </div>
+
+            <div>
+              <dt className="text-slate-500 font-medium">Ground Speed</dt>
+              <dd className="mt-0.5">{Number.isFinite(current?.gs_kt) ? `${current!.gs_kt} kt` : '—'}</dd>
+            </div>
+
+            <div>
+              <dt className="text-slate-500 font-medium">Heading</dt>
+              <dd className="mt-0.5">{Number.isFinite(current?.hdg) ? `${current!.hdg}°` : '—'}</dd>
+            </div>
           </dl>
         </aside>
       </main>
 
-      <footer className="p-3 text-center text-xs text-slate-500 border-t bg-white">
-        Sky-Key • v1 front end • map by OpenStreetMap
+      <footer className="p-3 flex items-center justify-between text-xs text-slate-500 border-t bg-white">
+        <span>Sky-Key • Map by OpenStreetMap</span>
+        <div className="flex items-center gap-2">
+          {showVersion && <span className="font-mono">v{VERSION}</span>}
+          <button
+            onClick={() => setShowVersion(v => !v)}
+            className="p-1 text-slate-400 hover:text-slate-600 transition-colors rounded hover:bg-slate-100"
+            title={showVersion ? "Hide version" : "Show version"}
+            aria-label={showVersion ? "Hide version" : "Show version"}
+          >
+            {showVersion ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          </button>
+        </div>
       </footer>
     </div>
   );
