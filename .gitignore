@@ -1,8 +1,8 @@
 node_modules/
 .next/
-.vercel/
-.turbo/
+out/
+.env.local
 .env*
-npm-debug.log*
-yarn.lock
-pnpm-lock.yaml
+.vercel/
+dist/
+.turbo/
