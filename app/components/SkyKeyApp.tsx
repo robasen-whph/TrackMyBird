@@ -280,30 +280,52 @@ useEffect(() => {
   setLivePoints([]);
 }, [hex]);
 
-// poll /api/state every 10s if no multi-point track yet
+// Poll /api/track every 30 seconds to accumulate flight path
 useEffect(() => {
-  if (!hex || (track?.points?.length ?? 0) > 1) return;
+  if (!hex) return;
   let stop = false;
 
   async function tick() {
     try {
-      const r = await fetch(`/api/state?hex=${encodeURIComponent(hex)}`, { cache: "no-store" });
-      const j = await r.json();
-      const p = j?.point;
-      if (p && Number.isFinite(p.lat) && Number.isFinite(p.lon)) {
-        setLivePoints(prev => {
-          const last = prev[prev.length - 1];
-          const moved = !last || last.lat !== p.lat || last.lon !== p.lon;
-          return moved ? [...prev, p] : prev;
-        });
-      }
-    } catch {}
-    if (!stop) setTimeout(tick, 10000);
+      const trackData = await fetchTrackByHex(hex);
+      
+      // Merge new points with existing ones
+      setLivePoints(prev => {
+        // Combine previous accumulated points with new points from API
+        const allPoints = [...prev, ...(trackData.points || [])];
+        
+        // Deduplicate by timestamp (keep latest for each timestamp)
+        const pointMap = new Map<number, Point>();
+        for (const pt of allPoints) {
+          if (pt.ts) {
+            pointMap.set(pt.ts, pt);
+          }
+        }
+        
+        // Convert back to array and sort by timestamp
+        const uniquePoints = Array.from(pointMap.values()).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+        
+        // Keep only last 24 hours (86400 seconds)
+        const now = Math.floor(Date.now() / 1000);
+        const cutoff = now - 86400;
+        const filtered = uniquePoints.filter(pt => !pt.ts || pt.ts >= cutoff);
+        
+        return filtered;
+      });
+
+      // Update track metadata (origin, destination, etc.)
+      setTrack(trackData);
+    } catch (e) {
+      console.error('Polling error:', e);
+    }
+    
+    if (!stop) setTimeout(tick, 30000); // 30 seconds
   }
 
+  // Initial fetch, then poll every 30s
   tick();
   return () => { stop = true; };
-}, [hex, track?.points?.length]);
+}, [hex]);
 
 
   return (
