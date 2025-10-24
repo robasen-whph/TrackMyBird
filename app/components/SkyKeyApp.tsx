@@ -27,6 +27,8 @@ type AirportInfo = {
   city?: string;
   country: string;
   country_code: string;
+  lat?: number;
+  lon?: number;
 };
 type Track = {
   hex: string;
@@ -237,16 +239,54 @@ export default function SkyKeyApp() {
 
   // sanitize points to avoid toFixed on undefined
   const rawPoints = (track?.points?.length ? track.points : livePoints) ?? [];
-  const points = useMemo(
-    () =>
-      rawPoints.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon)),
-    [rawPoints],
+  
+  // Get filtered track points and actual aircraft position
+  const filteredTrackPoints = useMemo(
+    () => rawPoints.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon)),
+    [rawPoints]
   );
-  const origin = points[0];
-  const current = points[points.length - 1];
-  // Only show destination marker if we have actual destination info
-  const destination = (track?.destinationInfo || track?.destinationAirport) && points.length > 1 
-    ? points[points.length - 1] 
+  
+  // Build polyline points with origin/destination airports for visual continuity
+  const points = useMemo(
+    () => {
+      let result = filteredTrackPoints;
+      
+      // Prepend origin airport coordinates if available to connect track to origin marker
+      if (Number.isFinite(track?.originInfo?.lat) && Number.isFinite(track?.originInfo?.lon) && filteredTrackPoints.length > 0) {
+        const originPoint: Point = {
+          lat: track.originInfo.lat!,
+          lon: track.originInfo.lon!,
+        };
+        result = [originPoint, ...result];
+      }
+      
+      // Append destination airport coordinates if available to connect track to destination marker
+      if (Number.isFinite(track?.destinationInfo?.lat) && Number.isFinite(track?.destinationInfo?.lon) && filteredTrackPoints.length > 0) {
+        const destinationPoint: Point = {
+          lat: track.destinationInfo.lat!,
+          lon: track.destinationInfo.lon!,
+        };
+        result = [...result, destinationPoint];
+      }
+      
+      return result;
+    },
+    [filteredTrackPoints, track?.originInfo, track?.destinationInfo],
+  );
+  
+  // Origin marker uses airport coordinates if available, otherwise first track point
+  const origin = Number.isFinite(track?.originInfo?.lat) && Number.isFinite(track?.originInfo?.lon)
+    ? { lat: track.originInfo.lat!, lon: track.originInfo.lon! }
+    : filteredTrackPoints[0];
+  
+  // Current position uses the last actual track point (not destination airport)
+  const current = filteredTrackPoints.length > 0 
+    ? filteredTrackPoints[filteredTrackPoints.length - 1] 
+    : undefined;
+  
+  // Destination marker uses airport coordinates if available
+  const destination = Number.isFinite(track?.destinationInfo?.lat) && Number.isFinite(track?.destinationInfo?.lon)
+    ? { lat: track.destinationInfo.lat!, lon: track.destinationInfo.lon! }
     : undefined;
 
   // Flight timing calculations

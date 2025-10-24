@@ -120,6 +120,8 @@ async function fetchAirportInfo(icao: string) {
       city: data.location || undefined,
       country: data.country || "Unknown",
       country_code: data.country_code || "XX",
+      lat: data.latitude ? parseFloat(data.latitude) : undefined,
+      lon: data.longitude ? parseFloat(data.longitude) : undefined,
     };
   } catch {
     return null;
