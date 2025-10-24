@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -78,10 +78,14 @@ const planeIcon = (heading?: number) =>
   });
 
 // ---------- Map helpers ----------
-function FitBounds({ points }: { points: Point[] }) {
+function FitBounds({ points, shouldFit, onFitComplete }: { 
+  points: Point[]; 
+  shouldFit: boolean;
+  onFitComplete: () => void;
+}) {
   const map = useMap();
   useEffect(() => {
-    if (!points?.length) return;
+    if (!shouldFit || !points?.length) return;
     const latlngs = points.map((p) => [p.lat, p.lon]) as LatLngExpression[];
     const bounds = L.latLngBounds(latlngs);
     if (latlngs.length === 1) {
@@ -89,7 +93,8 @@ function FitBounds({ points }: { points: Point[] }) {
     } else {
       map.fitBounds(bounds.pad(0.25), { animate: true });
     }
-  }, [points, map]);
+    onFitComplete();
+  }, [points, map, shouldFit, onFitComplete]);
   return null;
 }
 
@@ -237,6 +242,10 @@ export default function SkyKeyApp() {
     }
     return true;
   });
+  
+  // Track the last hex that was auto-fitted to prevent re-fitting on polling updates
+  const lastFittedHexRef = useRef<string | null>(null);
+  const [shouldAutoFit, setShouldAutoFit] = useState(false);
 
   // sanitize points to avoid toFixed on undefined
   const rawPoints = (track?.points?.length ? track.points : livePoints) ?? [];
@@ -396,10 +405,19 @@ export default function SkyKeyApp() {
     ] as LatLngExpression[];
   }, [filteredTrackPoints, destination]);
 
-  // reset live path when switching aircraft
+  // reset live path when switching aircraft and trigger auto-fit for new aircraft
   useEffect(() => {
     setLivePoints([]);
+    if (hex && hex !== lastFittedHexRef.current) {
+      setShouldAutoFit(true);
+      lastFittedHexRef.current = hex;
+    }
   }, [hex]);
+  
+  // Callback to reset auto-fit flag after it completes
+  const handleFitComplete = useCallback(() => {
+    setShouldAutoFit(false);
+  }, []);
 
   // 30-second polling for live updates
   useEffect(() => {
@@ -494,7 +512,7 @@ export default function SkyKeyApp() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution="&copy; OpenStreetMap"
             />
-            {points.length > 0 && <FitBounds points={points} />}
+            {points.length > 0 && <FitBounds points={points} shouldFit={shouldAutoFit} onFitComplete={handleFitComplete} />}
             {completedSegment.length > 1 && (
               <Polyline
                 positions={completedSegment}

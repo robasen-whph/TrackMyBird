@@ -69,6 +69,7 @@ The application runs on port 5000 in the Replit environment:
 - **Track connectivity**: Origin and destination markers now connect to flight path
 - **Dual-color segments**: Purple for completed path, gray dashed for remaining
 - **Improved aircraft icon**: Modern crisp airplane design (not human-like)
+- **Fixed zoom persistence**: Map now maintains user's zoom level during polling updates (only auto-fits on initial aircraft load)
 
 ## API Endpoints
 - `/api/track?hex=<ICAO_HEX>` - Get flight track with origin/destination (uses OpenSky + AviationStack)
