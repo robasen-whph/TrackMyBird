@@ -280,53 +280,6 @@ useEffect(() => {
   setLivePoints([]);
 }, [hex]);
 
-// Poll /api/track every 30 seconds to accumulate flight path
-useEffect(() => {
-  if (!hex) return;
-  let stop = false;
-
-  async function tick() {
-    try {
-      const trackData = await fetchTrackByHex(hex);
-      
-      // Merge new points with existing ones
-      setLivePoints(prev => {
-        // Combine previous accumulated points with new points from API
-        const allPoints = [...prev, ...(trackData.points || [])];
-        
-        // Deduplicate by timestamp (keep latest for each timestamp)
-        const pointMap = new Map<number, Point>();
-        for (const pt of allPoints) {
-          if (pt.ts) {
-            pointMap.set(pt.ts, pt);
-          }
-        }
-        
-        // Convert back to array and sort by timestamp
-        const uniquePoints = Array.from(pointMap.values()).sort((a, b) => (a.ts || 0) - (b.ts || 0));
-        
-        // Keep only last 24 hours (86400 seconds)
-        const now = Math.floor(Date.now() / 1000);
-        const cutoff = now - 86400;
-        const filtered = uniquePoints.filter(pt => !pt.ts || pt.ts >= cutoff);
-        
-        return filtered;
-      });
-
-      // Update track metadata (origin, destination, etc.)
-      setTrack(trackData);
-    } catch (e) {
-      console.error('Polling error:', e);
-    }
-    
-    if (!stop) setTimeout(tick, 30000); // 30 seconds
-  }
-
-  // Initial fetch, then poll every 30s
-  tick();
-  return () => { stop = true; };
-}, [hex]);
-
 
   return (
     <div className="min-h-screen grid grid-rows-[auto_1fr] bg-slate-50 text-slate-900">
