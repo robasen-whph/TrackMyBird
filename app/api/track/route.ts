@@ -1,39 +1,111 @@
 import { NextResponse } from "next/server";
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
-// Read config.json server-side only (not bundled with client)
+// Read config.json server-side only
 function getConfig() {
   const configPath = join(process.cwd(), "config.json");
   const configFile = readFileSync(configPath, "utf-8");
   return JSON.parse(configFile);
 }
 
-// ---- OAuth token ----
-async function getToken() {
+// Update config.json with new token and expiration
+function updateConfig(updates: Partial<{OS_ACCESS_TOKEN: string; OS_TOKEN_EXPIRATION: number}>) {
+  const configPath = join(process.cwd(), "config.json");
   const config = getConfig();
-  const id = config.OS_CLIENT_ID;
-  const secret = config.OS_CLIENT_SECRET;
+  const newConfig = { ...config, ...updates };
+  writeFileSync(configPath, JSON.stringify(newConfig, null, 2), "utf-8");
+}
+
+// Refresh OAuth token using client credentials
+async function refreshToken() {
+  const config = getConfig();
   const body = new URLSearchParams({
     grant_type: "client_credentials",
-    client_id: id,
-    client_secret: secret,
+    client_id: config.OS_CLIENT_ID,
+    client_secret: config.OS_CLIENT_SECRET,
   });
-  const r = await fetch(
-    "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token",
-    { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body, cache: "no-store" }
-  );
-  if (!r.ok) throw new Error(`token ${r.status}`);
-  const j = await r.json();
-  return j.access_token as string;
+  
+  console.log("[TOKEN] Refreshing OAuth token...");
+  const r = await fetch(config.OS_TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+    cache: "no-store",
+  });
+  
+  if (!r.ok) {
+    const errorText = await r.text();
+    console.error(`[TOKEN] Refresh failed: ${r.status} - ${errorText}`);
+    throw new Error(`Token refresh failed: ${r.status}`);
+  }
+  
+  const data = await r.json();
+  const newToken = data.access_token;
+  const expiresIn = data.expires_in || 1800; // default 30 min
+  const expiration = Date.now() + (expiresIn * 1000);
+  
+  // Update config.json
+  updateConfig({
+    OS_ACCESS_TOKEN: newToken,
+    OS_TOKEN_EXPIRATION: expiration,
+  });
+  
+  console.log(`[TOKEN] Refreshed successfully, expires in ${expiresIn}s`);
+  return newToken;
 }
 
-async function getJSON<T>(url: string, headers: Record<string, string>) {
-  const r = await fetch(url, { headers, cache: "no-store" });
-  if (!r.ok) throw new Error(String(r.status));
-  return r.json() as Promise<T>;
+// Get valid Bearer token (refresh if expired)
+async function getValidToken(): Promise<string> {
+  const config = getConfig();
+  const now = Date.now();
+  const expiration = config.OS_TOKEN_EXPIRATION || 0;
+  
+  // Refresh if expired or about to expire (within 60 seconds)
+  if (now >= expiration - 60000) {
+    console.log("[TOKEN] Token expired or expiring soon, refreshing...");
+    return await refreshToken();
+  }
+  
+  return config.OS_ACCESS_TOKEN;
 }
 
+// Make authenticated API call with retry on 401
+async function fetchWithAuth<T>(url: string, token: string): Promise<T> {
+  const r = await fetch(url, {
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    cache: "no-store",
+  });
+  
+  // If 401, refresh token and retry once
+  if (r.status === 401) {
+    console.log("[API] Got 401, refreshing token and retrying...");
+    const newToken = await refreshToken();
+    const retry = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        Authorization: `Bearer ${newToken}`,
+      },
+      cache: "no-store",
+    });
+    
+    if (!retry.ok) {
+      throw new Error(`API error after retry: ${retry.status}`);
+    }
+    return retry.json();
+  }
+  
+  if (!r.ok) {
+    throw new Error(`API error: ${r.status}`);
+  }
+  
+  return r.json();
+}
+
+// Fetch airport info (unauthenticated, separate API)
 async function fetchAirportInfo(icao: string) {
   try {
     const r = await fetch(
@@ -57,32 +129,54 @@ async function fetchAirportInfo(icao: string) {
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const hex = (searchParams.get("hex") || "").toLowerCase();
-  if (!/^[0-9a-f]{6}$/.test(hex)) return NextResponse.json({ message: "bad_hex" }, { status: 400 });
-
-  // try OAuth tracks at several times
-  let points: Array<{ lat: number; lon: number; ts?: number; alt_ft?: number; hdg?: number; gs_kt?: number }> = [];
-  let tail: string | null = null;
-  let originAirport: string | null = null;
-  let destinationAirport: string | null = null;
-  let firstSeen: number | null = null;
-  let lastSeen: number | null = null;
+  
+  if (!/^[0-9a-f]{6}$/.test(hex)) {
+    return NextResponse.json({ message: "bad_hex" }, { status: 400 });
+  }
 
   try {
-    const token = await getToken();
-    console.log(`[TRACK ${hex}] OAuth token obtained: ${token.substring(0, 20)}...`);
-    const auth = { Accept: "application/json", Authorization: `Bearer ${token}` };
+    // Get valid Bearer token (will refresh if needed)
+    const token = await getValidToken();
+    console.log(`[TRACK ${hex}] Using Bearer token`);
 
-    const now = Math.floor(Date.now() / 1000);
-    const tries = [0, now, now - 1800, now - 3600, now - 2 * 3600];
+    // Fetch flight track from /tracks/all with time=0 (current/latest)
+    const trackUrl = `https://opensky-network.org/api/tracks/all?icao24=${hex}&time=0`;
+    console.log(`[TRACK ${hex}] Fetching: ${trackUrl}`);
+    
+    const trackData: any = await fetchWithAuth(trackUrl, token);
+    console.log(`[TRACK ${hex}] Response: path=${trackData?.path?.length || 0} points, callsign=${trackData?.callsign}`);
 
-    // Try to get flight data for origin/destination
+    // Extract track points
+    let points: Array<{ lat: number; lon: number; ts?: number; alt_ft?: number; hdg?: number }> = [];
+    const path: any[] = trackData?.path || [];
+    
+    if (path.length > 0) {
+      points = path
+        .map((p) => ({
+          lat: p.latitude,
+          lon: p.longitude,
+          ts: p.time,
+          alt_ft: typeof p.baroAltitude === "number" ? Math.round(p.baroAltitude * 3.28084) : undefined,
+          hdg: typeof p.trueTrack === "number" ? Math.round(p.trueTrack) : undefined,
+        }))
+        .filter((pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lon));
+      
+      console.log(`[TRACK ${hex}] Extracted ${points.length} valid points`);
+    }
+
+    // Extract flight metadata
+    const tail = trackData?.callsign?.trim() || null;
+    let originAirport: string | null = null;
+    let destinationAirport: string | null = null;
+    let firstSeen: number | null = null;
+    let lastSeen: number | null = null;
+
+    // Try to get flight metadata from /flights endpoint
     try {
+      const now = Math.floor(Date.now() / 1000);
       const begin = now - 7 * 24 * 3600; // last 7 days
-      const end = now;
-      const flightUrl = `https://opensky-network.org/api/flights/aircraft?icao24=${hex}&begin=${begin}&end=${end}`;
-      console.log(`[TRACK ${hex}] Fetching flights from: ${flightUrl}`);
-      const flights: any = await getJSON<any>(flightUrl, auth);
-      console.log(`[TRACK ${hex}] Flights response:`, JSON.stringify(flights).substring(0, 200));
+      const flightUrl = `https://opensky-network.org/api/flights/aircraft?icao24=${hex}&begin=${begin}&end=${now}`;
+      const flights: any = await fetchWithAuth(flightUrl, token);
       
       if (flights && flights.length > 0) {
         const latestFlight = flights[flights.length - 1];
@@ -90,95 +184,40 @@ export async function GET(req: Request) {
         destinationAirport = latestFlight.estArrivalAirport || null;
         firstSeen = latestFlight.firstSeen || null;
         lastSeen = latestFlight.lastSeen || null;
-        tail = latestFlight.callsign?.trim() || tail;
-        console.log(`[TRACK ${hex}] Flight info: origin=${originAirport}, dest=${destinationAirport}`);
+        console.log(`[TRACK ${hex}] Flight: ${originAirport} → ${destinationAirport}`);
       }
     } catch (e) {
-      console.log(`[TRACK ${hex}] Flight data error:`, e);
+      console.log(`[TRACK ${hex}] Could not fetch flight metadata:`, e);
     }
 
-    for (const t of tries) {
-      try {
-        const trackUrl = `https://opensky-network.org/api/tracks/all?icao24=${hex}&time=${t}`;
-        console.log(`[TRACK ${hex}] Trying track at time=${t} (${t === 0 ? 'now' : new Date(t * 1000).toISOString()})`);
-        const trk: any = await getJSON<any>(trackUrl, auth);
-        console.log(`[TRACK ${hex}] Track response at time=${t}: path length=${trk?.path?.length || 0}, callsign=${trk?.callsign}`);
-        
-        const path: any[] = trk?.path || [];
-        if (path.length) {
-          console.log(`[TRACK ${hex}] Found ${path.length} points in track`);
-          points = path
-            .map((p) => ({
-              lat: p.latitude,
-              lon: p.longitude,
-              ts: p.time,
-              alt_ft: typeof p.baroAltitude === "number" ? Math.round(p.baroAltitude * 3.28084) : undefined,
-              hdg: typeof p.trueTrack === "number" ? Math.round(p.trueTrack) : undefined,
-              gs_kt: undefined,
-            }))
-            .filter((pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lon));
-          tail = trk?.callsign ?? tail;
-          if (points.length) {
-            console.log(`[TRACK ${hex}] Successfully got ${points.length} valid points`);
-            break;
-          }
-        }
-      } catch (e) {
-        console.log(`[TRACK ${hex}] Track error at time=${t}:`, e);
-      }
+    // Fetch airport details
+    let originInfo = null;
+    let destinationInfo = null;
+    
+    if (originAirport) {
+      originInfo = await fetchAirportInfo(originAirport);
     }
-  } catch (e) {
-    console.log(`[TRACK ${hex}] OAuth token failure:`, e);
-  }
-
-  // fallback: live state (unauthenticated)
-  if (!points.length) {
-    console.log(`[TRACK ${hex}] No track points found, falling back to live state`);
-    try {
-      const state: any = await getJSON<any>(
-        `https://opensky-network.org/api/states/all?icao24=${hex}`,
-        { Accept: "application/json" }
-      );
-      const row = state?.states?.[0];
-      if (row && Number.isFinite(row[6]) && Number.isFinite(row[5])) {
-        console.log(`[TRACK ${hex}] Got live state fallback point`);
-        points = [
-          {
-            lat: row[6], // latitude
-            lon: row[5], // longitude
-            ts: typeof row[4] === "number" ? row[4] : undefined, // last contact
-            alt_ft: typeof row[13] === "number" ? Math.round(row[13] * 3.28084) : undefined, // geo alt
-            hdg: typeof row[10] === "number" ? Math.round(row[10]) : undefined, // true track
-            gs_kt: undefined,
-          },
-        ];
-        tail = typeof row[1] === "string" ? row[1].trim() || null : tail;
-      }
-    } catch {
-      console.log(`[TRACK ${hex}] Live state fallback also failed`);
+    if (destinationAirport) {
+      destinationInfo = await fetchAirportInfo(destinationAirport);
     }
-  }
 
-  // Fetch airport info if we have airport codes
-  let originInfo = null;
-  let destinationInfo = null;
-  
-  if (originAirport) {
-    originInfo = await fetchAirportInfo(originAirport);
-  }
-  if (destinationAirport) {
-    destinationInfo = await fetchAirportInfo(destinationAirport);
-  }
+    return NextResponse.json({
+      hex: hex.toUpperCase(),
+      tail,
+      points,
+      originAirport,
+      destinationAirport,
+      originInfo,
+      destinationInfo,
+      firstSeen,
+      lastSeen,
+    });
 
-  return NextResponse.json({
-    hex: hex.toUpperCase(),
-    tail,
-    points,
-    originAirport,
-    destinationAirport,
-    originInfo,
-    destinationInfo,
-    firstSeen,
-    lastSeen,
-  });
+  } catch (error: any) {
+    console.error(`[TRACK ${hex}] Error:`, error.message);
+    return NextResponse.json(
+      { message: "track_error", error: error.message },
+      { status: 500 }
+    );
+  }
 }
