@@ -45,9 +45,8 @@ type ApiError = { message?: string };
 const originPin = new L.DivIcon({
   className: "",
   html: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='36' height='36'>
-    <circle cx='16' cy='16' r='14' fill='#10b981' stroke='white' stroke-width='2'/>
-    <circle cx='16' cy='16' r='8' fill='white' opacity='0.9'/>
-    <text x='16' y='20' text-anchor='middle' font-size='14' font-weight='bold' fill='#10b981'>O</text>
+    <path fill='#10b981' stroke='white' stroke-width='2' d='M16 2c-4.5 0-8 3.5-8 8 0 6 8 16 8 16s8-10 8-16c0-4.5-3.5-8-8-8z'/>
+    <circle cx='16' cy='10' r='4' fill='white'/>
   </svg>`,
   iconAnchor: [18, 36],
 });
@@ -245,7 +244,10 @@ export default function SkyKeyApp() {
   );
   const origin = points[0];
   const current = points[points.length - 1];
-  const destination = points.length > 1 ? points[points.length - 1] : undefined;
+  // Only show destination marker if we have actual destination info
+  const destination = (track?.destinationInfo || track?.destinationAirport) && points.length > 1 
+    ? points[points.length - 1] 
+    : undefined;
 
   // Flight timing calculations
   const now = Math.floor(Date.now() / 1000);
