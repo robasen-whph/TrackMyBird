@@ -151,13 +151,14 @@ export async function GET(req: Request) {
     const path: any[] = trackData?.path || [];
     
     if (path.length > 0) {
+      // OpenSky /tracks/all returns: [time, latitude, longitude, baroAltitude, trueTrack, onGround]
       points = path
         .map((p) => ({
-          lat: p.latitude,
-          lon: p.longitude,
-          ts: p.time,
-          alt_ft: typeof p.baroAltitude === "number" ? Math.round(p.baroAltitude * 3.28084) : undefined,
-          hdg: typeof p.trueTrack === "number" ? Math.round(p.trueTrack) : undefined,
+          lat: p[1],  // latitude
+          lon: p[2],  // longitude
+          ts: p[0],   // time
+          alt_ft: typeof p[3] === "number" ? Math.round(p[3] * 3.28084) : undefined,  // baroAltitude
+          hdg: typeof p[4] === "number" ? Math.round(p[4]) : undefined,  // trueTrack
         }))
         .filter((pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lon));
       

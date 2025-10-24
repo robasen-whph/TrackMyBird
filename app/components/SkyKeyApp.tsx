@@ -280,6 +280,23 @@ useEffect(() => {
   setLivePoints([]);
 }, [hex]);
 
+// 30-second polling for live updates
+useEffect(() => {
+  if (!hex) return;
+  
+  const pollInterval = setInterval(async () => {
+    try {
+      console.log(`[POLL] Updating track for ${hex}`);
+      const updatedTrack = await fetchTrackByHex(hex);
+      setTrack(updatedTrack);
+    } catch (e) {
+      console.error(`[POLL] Failed to update track:`, e);
+    }
+  }, 30000); // 30 seconds
+  
+  return () => clearInterval(pollInterval);
+}, [hex]);
+
 
   return (
     <div className="min-h-screen grid grid-rows-[auto_1fr] bg-slate-50 text-slate-900">
