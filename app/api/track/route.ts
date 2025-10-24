@@ -22,8 +22,8 @@ async function refreshToken() {
   const config = getConfig();
   const body = new URLSearchParams({
     grant_type: "client_credentials",
-    client_id: config.OS_CLIENT_ID,
-    client_secret: config.OS_CLIENT_SECRET,
+    client_id: process.env.OPENSKY_CLIENT_ID || "",
+    client_secret: process.env.OPENSKY_CLIENT_SECRET || "",
   });
   
   console.log("[TOKEN] Refreshing OAuth token...");
