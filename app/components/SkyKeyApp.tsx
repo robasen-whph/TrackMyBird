@@ -1,10 +1,16 @@
-'use client';
+"use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
-import L, { LatLngBoundsExpression, LatLngExpression } from 'leaflet';
-import { Eye, EyeOff } from 'lucide-react';
-import 'leaflet/dist/leaflet.css';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Polyline,
+  useMap,
+} from "react-leaflet";
+import L, { LatLngBoundsExpression, LatLngExpression } from "leaflet";
+import { Eye, EyeOff } from "lucide-react";
+import "leaflet/dist/leaflet.css";
 
 // ---------- Types ----------
 type Point = {
@@ -37,7 +43,7 @@ type ApiError = { message?: string };
 
 // ---------- Icons ----------
 const originPin = new L.DivIcon({
-  className: '',
+  className: "",
   html: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='36' height='36'>
     <circle cx='16' cy='16' r='14' fill='#10b981' stroke='white' stroke-width='2'/>
     <circle cx='16' cy='16' r='8' fill='white' opacity='0.9'/>
@@ -47,7 +53,7 @@ const originPin = new L.DivIcon({
 });
 
 const destinationPin = new L.DivIcon({
-  className: '',
+  className: "",
   html: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='36' height='36'>
     <path fill='#ef4444' stroke='white' stroke-width='2' d='M16 2c-4.5 0-8 3.5-8 8 0 6 8 16 8 16s8-10 8-16c0-4.5-3.5-8-8-8z'/>
     <circle cx='16' cy='10' r='4' fill='white'/>
@@ -57,7 +63,7 @@ const destinationPin = new L.DivIcon({
 
 const planeIcon = (heading?: number) =>
   new L.DivIcon({
-    className: '',
+    className: "",
     html: `<div style="transform: rotate(${heading ?? 0}deg); transform-origin: center;">
       <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='42' height='42'>
         <g transform='translate(24, 24)'>
@@ -74,7 +80,7 @@ function FitBounds({ points }: { points: Point[] }) {
   const map = useMap();
   useEffect(() => {
     if (!points?.length) return;
-    const latlngs = points.map(p => [p.lat, p.lon]) as LatLngExpression[];
+    const latlngs = points.map((p) => [p.lat, p.lon]) as LatLngExpression[];
     const bounds = L.latLngBounds(latlngs);
     if (latlngs.length === 1) {
       map.setView(latlngs[0] as any, 10, { animate: true });
@@ -88,9 +94,10 @@ function FitBounds({ points }: { points: Point[] }) {
 // ---------- Fetch layer ----------
 async function safeFetch(url: string) {
   // Optional local mock toggle
-  if (typeof window !== 'undefined' && (window as any).SKYKEY_MOCK) return mockFetch(url);
+  if (typeof window !== "undefined" && (window as any).SKYKEY_MOCK)
+    return mockFetch(url);
 
-  const r = await fetch(url, { headers: { accept: 'application/json' } });
+  const r = await fetch(url, { headers: { accept: "application/json" } });
   if (!r.ok) {
     let msg = r.statusText;
     try {
@@ -107,7 +114,9 @@ async function fetchTrackByHex(hex: string): Promise<Track> {
   return safeFetch(url);
 }
 
-async function fetchHexByTail(tail: string): Promise<{ hex: string; tail: string }> {
+async function fetchHexByTail(
+  tail: string,
+): Promise<{ hex: string; tail: string }> {
   const url = `/api/resolve?tail=${encodeURIComponent(tail)}`;
   return safeFetch(url);
 }
@@ -119,107 +128,154 @@ async function fetchRandomHex(): Promise<{ hex: string; tail?: string }> {
 
 // ---------- Local mock ----------
 function mockFetch(url: string) {
-  if (url.startsWith('/api/random')) return Promise.resolve({ hex: 'ABC123', tail: 'N123AB' });
-  if (url.startsWith('/api/resolve')) {
-    const q = new URLSearchParams(url.split('?')[1]);
-    const tail = q.get('tail') || 'N123AB';
-    return Promise.resolve({ hex: 'ABC123', tail });
+  if (url.startsWith("/api/random"))
+    return Promise.resolve({ hex: "ABC123", tail: "N123AB" });
+  if (url.startsWith("/api/resolve")) {
+    const q = new URLSearchParams(url.split("?")[1]);
+    const tail = q.get("tail") || "N123AB";
+    return Promise.resolve({ hex: "ABC123", tail });
   }
-  if (url.startsWith('/api/track')) {
+  if (url.startsWith("/api/track")) {
     const pts: Point[] = [
-      { lat: 40.6413, lon: -73.7781, ts: Date.now() - 60 * 60 * 1000, alt_ft: 0, gs_kt: 0, hdg: 45 },
-      { lat: 41.0, lon: -73.0, ts: Date.now() - 45 * 60 * 1000, alt_ft: 8000, gs_kt: 250, hdg: 45 },
-      { lat: 41.5, lon: -72.5, ts: Date.now() - 30 * 60 * 1000, alt_ft: 12000, gs_kt: 280, hdg: 45 },
-      { lat: 42.0, lon: -72.0, ts: Date.now() - 15 * 60 * 1000, alt_ft: 15000, gs_kt: 300, hdg: 50 },
-      { lat: 42.3656, lon: -71.0096, ts: Date.now() - 2 * 60 * 1000, alt_ft: 1000, gs_kt: 160, hdg: 60 },
+      {
+        lat: 40.6413,
+        lon: -73.7781,
+        ts: Date.now() - 60 * 60 * 1000,
+        alt_ft: 0,
+        gs_kt: 0,
+        hdg: 45,
+      },
+      {
+        lat: 41.0,
+        lon: -73.0,
+        ts: Date.now() - 45 * 60 * 1000,
+        alt_ft: 8000,
+        gs_kt: 250,
+        hdg: 45,
+      },
+      {
+        lat: 41.5,
+        lon: -72.5,
+        ts: Date.now() - 30 * 60 * 1000,
+        alt_ft: 12000,
+        gs_kt: 280,
+        hdg: 45,
+      },
+      {
+        lat: 42.0,
+        lon: -72.0,
+        ts: Date.now() - 15 * 60 * 1000,
+        alt_ft: 15000,
+        gs_kt: 300,
+        hdg: 50,
+      },
+      {
+        lat: 42.3656,
+        lon: -71.0096,
+        ts: Date.now() - 2 * 60 * 1000,
+        alt_ft: 1000,
+        gs_kt: 160,
+        hdg: 60,
+      },
     ];
-    return Promise.resolve({ hex: 'ABC123', tail: 'N123AB', points: pts });
+    return Promise.resolve({ hex: "ABC123", tail: "N123AB", points: pts });
   }
-  return Promise.reject(new Error('Unknown mock route'));
+  return Promise.reject(new Error("Unknown mock route"));
 }
 
 // ---------- Helpers ----------
-function formatAirport(info: AirportInfo | null | undefined, icao: string | null | undefined): string {
-  if (!info && !icao) return 'Unknown';
-  if (!info) return icao || 'Unknown';
-  
-  const isUS = info.country_code === 'US';
+function formatAirport(
+  info: AirportInfo | null | undefined,
+  icao: string | null | undefined,
+): string {
+  if (!info && !icao) return "Unknown";
+  if (!info) return icao || "Unknown";
+
+  const isUS = info.country_code === "US";
   const parts = [info.icao, info.name];
   if (!isUS && info.country) {
     parts.push(info.country);
   }
-  return parts.join(' - ');
+  return parts.join(" - ");
 }
 
 function formatTime(ts: number | null | undefined): string {
-  if (!ts) return '—';
+  if (!ts) return "—";
   const date = new Date(ts * 1000);
-  return date.toLocaleString('en-US', { 
-    month: 'short', day: 'numeric', 
-    hour: '2-digit', minute: '2-digit',
-    timeZoneName: 'short'
+  return date.toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
   });
 }
 
 function formatDuration(seconds: number | null | undefined): string {
-  if (!seconds || seconds < 0) return '—';
+  if (!seconds || seconds < 0) return "—";
   const hrs = Math.floor(seconds / 3600);
   const mins = Math.floor((seconds % 3600) / 60);
   return `${hrs}h ${mins}m`;
 }
 
-const VERSION = '0.3';
+const VERSION = "0.3";
 
 // ---------- UI ----------
 export default function SkyKeyApp() {
-  const [hex, setHex] = useState('');
-  const [tail, setTail] = useState('');
+  const [hex, setHex] = useState("");
+  const [tail, setTail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [track, setTrack] = useState<Track | null>(null);
   const [livePoints, setLivePoints] = useState<Point[]>([]);
   const [showVersion, setShowVersion] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('skykey-show-version');
-      return saved !== null ? saved === 'true' : true;
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("skykey-show-version");
+      return saved !== null ? saved === "true" : true;
     }
     return true;
   });
 
   // sanitize points to avoid toFixed on undefined
-const rawPoints = (track?.points?.length ? track.points : livePoints) ?? [];
-const points = useMemo(
-  () => rawPoints.filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon)),
-  [rawPoints]
-);
-const origin = points[0];
-const current = points[points.length - 1];
-const destination = points.length > 1 ? points[points.length - 1] : undefined;
+  const rawPoints = (track?.points?.length ? track.points : livePoints) ?? [];
+  const points = useMemo(
+    () =>
+      rawPoints.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon)),
+    [rawPoints],
+  );
+  const origin = points[0];
+  const current = points[points.length - 1];
+  const destination = points.length > 1 ? points[points.length - 1] : undefined;
 
-// Flight timing calculations
-const now = Math.floor(Date.now() / 1000);
-const departureTime = track?.firstSeen;
-const arrivalTime = track?.lastSeen;
-const duration = (departureTime && arrivalTime) ? arrivalTime - departureTime : null;
-const isFlightCompleted = arrivalTime && arrivalTime < now;
-const timeRemaining = (arrivalTime && !isFlightCompleted) ? arrivalTime - now : null;
+  // Flight timing calculations
+  const now = Math.floor(Date.now() / 1000);
+  const departureTime = track?.firstSeen;
+  const arrivalTime = track?.lastSeen;
+  const duration =
+    departureTime && arrivalTime ? arrivalTime - departureTime : null;
+  const isFlightCompleted = arrivalTime && arrivalTime < now;
+  const timeRemaining =
+    arrivalTime && !isFlightCompleted ? arrivalTime - now : null;
 
-// Save version toggle preference
-useEffect(() => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('skykey-show-version', String(showVersion));
-  }
-}, [showVersion]);
-
-
+  // Save version toggle preference
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("skykey-show-version", String(showVersion));
+    }
+  }, [showVersion]);
 
   const onTailKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); handleFetchByTail(tail); }
-};
-const onHexKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
-  if (e.key === 'Enter') { e.preventDefault(); handleFetchByHex(hex); }
-};
-
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleFetchByTail(tail);
+    }
+  };
+  const onHexKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleFetchByHex(hex);
+    }
+  };
 
   const handleFetchByHex = useCallback(async (h: string) => {
     if (!h) return;
@@ -229,7 +285,7 @@ const onHexKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
       const t = await fetchTrackByHex(h);
       setTrack(t);
     } catch (e: any) {
-      setError(e.message || 'Failed');
+      setError(e.message || "Failed");
       setTrack(null);
     } finally {
       setLoading(false);
@@ -242,11 +298,11 @@ const onHexKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
     setError(null);
     try {
       const r = await fetchHexByTail(t);
-      setHex(r.hex?.toUpperCase() ?? '');
+      setHex(r.hex?.toUpperCase() ?? "");
       const tr = await fetchTrackByHex(r.hex);
       setTrack(tr);
     } catch (e: any) {
-      setError(e.message || 'Failed');
+      setError(e.message || "Failed");
       setTrack(null);
     } finally {
       setLoading(false);
@@ -258,12 +314,12 @@ const onHexKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
     setError(null);
     try {
       const r = await fetchRandomHex();
-      setHex(r.hex?.toUpperCase() ?? '');
+      setHex(r.hex?.toUpperCase() ?? "");
       const tr = await fetchTrackByHex(r.hex);
       setTrack(tr);
       if (r.tail) setTail(r.tail);
     } catch (e: any) {
-      setError(e.message || 'Failed');
+      setError(e.message || "Failed");
       setTrack(null);
     } finally {
       setLoading(false);
@@ -271,32 +327,34 @@ const onHexKeyDown: React.KeyboardEventHandler<HTMLInputElement> = (e) => {
   }, []);
 
   const polyline = useMemo(
-    () => (points.length ? (points.map(p => [p.lat, p.lon]) as LatLngExpression[]) : []),
-    [points]
+    () =>
+      points.length
+        ? (points.map((p) => [p.lat, p.lon]) as LatLngExpression[])
+        : [],
+    [points],
   );
 
   // reset live path when switching aircraft
-useEffect(() => {
-  setLivePoints([]);
-}, [hex]);
+  useEffect(() => {
+    setLivePoints([]);
+  }, [hex]);
 
-// 30-second polling for live updates
-useEffect(() => {
-  if (!hex) return;
-  
-  const pollInterval = setInterval(async () => {
-    try {
-      console.log(`[POLL] Updating track for ${hex}`);
-      const updatedTrack = await fetchTrackByHex(hex);
-      setTrack(updatedTrack);
-    } catch (e) {
-      console.error(`[POLL] Failed to update track:`, e);
-    }
-  }, 30000); // 30 seconds
-  
-  return () => clearInterval(pollInterval);
-}, [hex]);
+  // 30-second polling for live updates
+  useEffect(() => {
+    if (!hex) return;
 
+    const pollInterval = setInterval(async () => {
+      try {
+        console.log(`[POLL] Updating track for ${hex}`);
+        const updatedTrack = await fetchTrackByHex(hex);
+        setTrack(updatedTrack);
+      } catch (e) {
+        console.error(`[POLL] Failed to update track:`, e);
+      }
+    }, 5000); // 30 seconds -> 5 seconds for testing
+
+    return () => clearInterval(pollInterval);
+  }, [hex]);
 
   return (
     <div className="min-h-screen grid grid-rows-[auto_1fr] bg-slate-50 text-slate-900">
@@ -305,8 +363,8 @@ useEffect(() => {
         <div>
           <h1 className="text-2xl font-semibold">Sky-Key Tracker</h1>
           <p className="text-sm text-slate-600">
-            Enter tail or hex. Or pick Random. Map auto-centers on the full path. Icons mark origin,
-            destination, and current position.
+            Enter tail or hex. Or pick Random. Map auto-centers on the full
+            path. Icons mark origin, destination, and current position.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -314,12 +372,12 @@ useEffect(() => {
             <label className="text-xs">Tail</label>
             <input
               value={tail}
-              onChange={e => {
+              onChange={(e) => {
                 setTail(e.target.value.toUpperCase());
-                if (e.target.value && hex) setHex('');
+                if (e.target.value && hex) setHex("");
               }}
-                onKeyDown={onTailKeyDown}
-               placeholder="N123AB"
+              onKeyDown={onTailKeyDown}
+              placeholder="N123AB"
               className="px-3 py-2 border rounded w-40"
             />
           </div>
@@ -335,9 +393,9 @@ useEffect(() => {
             <label className="text-xs">Hex</label>
             <input
               value={hex}
-              onChange={e => {
+              onChange={(e) => {
                 setHex(e.target.value.toUpperCase());
-                if (e.target.value && tail) setTail('');
+                if (e.target.value && tail) setTail("");
               }}
               onKeyDown={onHexKeyDown}
               placeholder="ABC123"
@@ -365,18 +423,39 @@ useEffect(() => {
       {/* Body */}
       <main className="grid md:grid-cols-[1fr_360px]">
         <section className="relative">
-          <MapContainer center={[39.5, -98.35]} zoom={4} className="h-full w-full">
+          <MapContainer
+            center={[39.5, -98.35]}
+            zoom={4}
+            className="h-full w-full"
+          >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution="&copy; OpenStreetMap"
             />
             {points.length > 0 && <FitBounds points={points} />}
-            {polyline.length > 1 && <Polyline positions={polyline} color="#a855f7" weight={4} opacity={0.9} />}
-            {origin && <Marker position={[origin.lat, origin.lon]} icon={originPin} />}
-            {destination && (
-              <Marker position={[destination.lat, destination.lon]} icon={destinationPin} />
+            {polyline.length > 1 && (
+              <Polyline
+                positions={polyline}
+                color="#a855f7"
+                weight={4}
+                opacity={0.9}
+              />
             )}
-            {current && <Marker position={[current.lat, current.lon]} icon={planeIcon(current.hdg)} />}
+            {origin && (
+              <Marker position={[origin.lat, origin.lon]} icon={originPin} />
+            )}
+            {destination && (
+              <Marker
+                position={[destination.lat, destination.lon]}
+                icon={destinationPin}
+              />
+            )}
+            {current && (
+              <Marker
+                position={[current.lat, current.lon]}
+                icon={planeIcon(current.hdg)}
+              />
+            )}
           </MapContainer>
         </section>
 
@@ -386,12 +465,12 @@ useEffect(() => {
           <dl className="text-sm space-y-3">
             <div>
               <dt className="text-slate-500 font-medium">HEX</dt>
-              <dd className="mt-0.5">{track?.hex || '—'}</dd>
+              <dd className="mt-0.5">{track?.hex || "—"}</dd>
             </div>
 
             <div>
               <dt className="text-slate-500 font-medium">Tail</dt>
-              <dd className="mt-0.5">{track?.tail || '—'}</dd>
+              <dd className="mt-0.5">{track?.tail || "—"}</dd>
             </div>
 
             <div className="pt-2 border-t">
@@ -404,7 +483,10 @@ useEffect(() => {
             <div>
               <dt className="text-slate-500 font-medium">Destination</dt>
               <dd className="mt-0.5 text-xs leading-relaxed">
-                {formatAirport(track?.destinationInfo, track?.destinationAirport)}
+                {formatAirport(
+                  track?.destinationInfo,
+                  track?.destinationAirport,
+                )}
               </dd>
             </div>
 
@@ -436,23 +518,33 @@ useEffect(() => {
             <div>
               <dt className="text-slate-500 font-medium">Current Position</dt>
               <dd className="mt-0.5 text-xs">
-                {current ? `${current.lat.toFixed(3)}, ${current.lon.toFixed(3)}` : '—'}
+                {current
+                  ? `${current.lat.toFixed(3)}, ${current.lon.toFixed(3)}`
+                  : "—"}
               </dd>
             </div>
 
             <div>
               <dt className="text-slate-500 font-medium">Altitude</dt>
-              <dd className="mt-0.5">{Number.isFinite(current?.alt_ft) ? `${current!.alt_ft} ft` : '—'}</dd>
+              <dd className="mt-0.5">
+                {Number.isFinite(current?.alt_ft)
+                  ? `${current!.alt_ft} ft`
+                  : "—"}
+              </dd>
             </div>
 
             <div>
               <dt className="text-slate-500 font-medium">Ground Speed</dt>
-              <dd className="mt-0.5">{Number.isFinite(current?.gs_kt) ? `${current!.gs_kt} kt` : '—'}</dd>
+              <dd className="mt-0.5">
+                {Number.isFinite(current?.gs_kt) ? `${current!.gs_kt} kt` : "—"}
+              </dd>
             </div>
 
             <div>
               <dt className="text-slate-500 font-medium">Heading</dt>
-              <dd className="mt-0.5">{Number.isFinite(current?.hdg) ? `${current!.hdg}°` : '—'}</dd>
+              <dd className="mt-0.5">
+                {Number.isFinite(current?.hdg) ? `${current!.hdg}°` : "—"}
+              </dd>
             </div>
           </dl>
         </aside>
@@ -463,12 +555,16 @@ useEffect(() => {
         <div className="flex items-center gap-2">
           {showVersion && <span className="font-mono">v{VERSION}</span>}
           <button
-            onClick={() => setShowVersion(v => !v)}
+            onClick={() => setShowVersion((v) => !v)}
             className="p-1 text-slate-400 hover:text-slate-600 transition-colors rounded hover:bg-slate-100"
             title={showVersion ? "Hide version" : "Show version"}
             aria-label={showVersion ? "Hide version" : "Show version"}
           >
-            {showVersion ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            {showVersion ? (
+              <Eye className="w-4 h-4" />
+            ) : (
+              <EyeOff className="w-4 h-4" />
+            )}
           </button>
         </div>
       </footer>
