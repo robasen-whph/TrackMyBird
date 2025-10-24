@@ -1,0 +1,129 @@
+Replit Plan – OpenSky API Integration (Working Token Included)
+Goal
+
+Replace the old or partial OpenSky access with a fully functioning OAuth2 client-credentials authentication and a 30-second polling loop that retrieves aircraft tracks using the /tracks/all endpoint.
+Use the verified working token provided below.
+This is a pre-production configuration, so credentials and tokens can be stored directly in config.json.
+
+1. Configuration
+
+Maintain a config.json file with at least the following keys (names may vary internally):
+
+{
+  "OS_CLIENT_ID": "nycrobaviation-api-client",
+  "OS_CLIENT_SECRET": "FwwMtVdibhXWnUSecaPGJj1r4xSi2MIQ",
+  "OS_TOKEN_URL": "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token",
+  "OS_ACCESS_TOKEN": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ0SVIwSDB0bmNEZTlKYmp4dFctWEtqZ0RYSWExNnR5eU5DWHJxUzJQNkRjIn0.eyJleHAiOjE3NjEzMjY3MjMsImlhdCI6MTc2MTMyNDkyMywianRpIjoiNzNiM2IwMWQtYTRhZi00NjA3LTk0YjktMDQ1MjIxYmM1ZWI0IiwiaXNzIjoiaHR0cHM6Ly9hdXRoLm9wZW5za3ktbmV0d29yay5vcmcvYXV0aC9yZWFsbXMvb3BlbnNreS1uZXR3b3JrIiwiYXVkIjpbIndlYnNpdGUtdWkiLCJhY2NvdW50Il0sInN1YiI6ImFhZTMyZjgyLWM0ZWYtNGQ2OS04OWVjLTQ1NWFmZDQyMmMxMyIsInR5cCI6IkJlYXJlciIsImF6cCI6Im55Y3JvYmF2aWF0aW9uLWFwaS1jbGllbnQiLCJhY3IiOiIxIiwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbIm9mZmxpbmVfYWNjZXNzIiwiT1BFTlNLWV9BUElfREVGQVVMVCIsInVtYV9hdXRob3JpemF0aW9uIiwiZGVmYXVsdC1yb2xlcy1vcGVuc2t5LW5ldHdvcmsiXX0sInJlc291cmNlX2FjY2VzcyI6eyJ3ZWJzaXRlLXVpIjp7InJvbGVzIjpbIm9wZW5za3lfd2Vic2l0ZV91c2VyIl19LCJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19LCJzY29wZSI6InByb2ZpbGUgZW1haWwiLCJjbGllbnRJZCI6Im55Y3JvYmF2aWF0aW9uLWFwaS1jbGllbnQiLCJjbGllbnRIb3N0IjoiNTAuOTAuMTMzLjE4IiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJzZXJ2aWNlLWFjY291bnQtbnljcm9iYXZpYXRpb24tYXBpLWNsaWVudCIsImNsaWVudEFkZHJlc3MiOiI1MC45MC4xMzMuMTgifQ.Ehvq-mnxGoifYaBI_ThAea5UGGbm_1aCTu8EsZ2AKblZuEMXfv2PLsutg0R6WxoFkk4XVOhKA1NfUTNsWwnHpyobAgYRwFx2KsJOJ1iR0RXxEKlUhRlmZHvj3FZbXZj-7tMAYkyh0dmiJ9uGBQr8VlytvOR8MEptqTre4psSISBKHGlyINwc0P6NkWqz2iYd28J7VDzCcFx3GifIQ-fdv3az5x1jm-wdIKZdyGOoBzoj6TynXs11kEVOqVY6R7ULfPud5wXEzMBkUhs5ak-YvnhFllH5nh-RPoNlbRGbaGerH8nj6_Q-MawoVxyiSVOJrYw1qB4sNT3lWN5r-ElZ3Q",
+  "OS_TOKEN_EXPIRATION": 1761326723000,
+  "ACTIVE_HEX": "a2b356",
+  "POLL_INTERVAL_SEC": 30,
+  "ALTITUDE_UNITS": "ft"
+}
+
+
+Replit can change internal key names or add new ones—functionality is what matters.
+
+2. How the Token Works
+
+The value under "OS_ACCESS_TOKEN" is a valid Bearer token.
+
+Include it in every OpenSky API request as:
+
+Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6...
+
+
+Tokens normally expire after ~30 minutes (expires_in: 1800).
+
+Refresh it automatically by POSTing to OS_TOKEN_URL using the client credentials when it expires or when a 401 is received.
+
+3. API Requests
+
+A. Track data (core feature)
+
+GET https://opensky-network.org/api/tracks/all?icao24=<ACTIVE_HEX>&time=0
+Authorization: Bearer <OS_ACCESS_TOKEN>
+
+
+B. Optional aircraft list (for debugging only)
+
+GET https://opensky-network.org/api/states/all
+Authorization: Bearer <OS_ACCESS_TOKEN>
+
+4. Polling and Storage Requirements
+Parameter	Behavior
+POLL_INTERVAL_SEC	Default 30 seconds (can be configurable).
+ACTIVE_HEX	Single aircraft to track, lowercase ICAO24.
+Polling Loop	Repeat fetch every interval; dedupe by timestamp; continue until stopped.
+Retention Window	Keep up to 24 hours of points (~86,400 s) before trimming old entries.
+Output	Save or expose /data/track_active.json.
+Units	Convert meters → feet if "ALTITUDE_UNITS": "ft".
+Cleanup	When ACTIVE_HEX changes, clear old buffers/files before resuming.
+
+Output JSON format
+
+{
+  "icao24": "a2b356",
+  "callsign": "N273TM",
+  "last_update": "2025-10-24T15:40:00Z",
+  "points": [
+    { "t": 1761319047, "lat": 39.1234, "lon": -85.1234, "alt": 43000, "hdg": 105, "onG": false }
+  ]
+}
+
+5. Token Refresh Logic
+
+When Date.now() > OS_TOKEN_EXPIRATION - 60000 or API returns 401:
+
+POST to OS_TOKEN_URL
+
+grant_type=client_credentials
+client_id=<OS_CLIENT_ID>
+client_secret=<OS_CLIENT_SECRET>
+
+
+Parse access_token and expires_in.
+
+Update config.json:
+
+"OS_ACCESS_TOKEN": "<new_token>",
+"OS_TOKEN_EXPIRATION": Date.now() + (expires_in * 1000)
+
+6. Error Handling
+Condition	Required behavior
+401 Unauthorized	Refresh token and retry.
+Network/JSON error	Log and retry next cycle (don’t crash).
+Empty path	Log “No active track for this aircraft.”
+Bad credentials	Log “Invalid client ID/secret”; skip polling until fixed.
+7. Implementation Checklist
+
+ Implement token refresh using client_credentials grant.
+
+ Replace all old unauthenticated requests with Bearer-authorized calls.
+
+ Implement /tracks/all polling at POLL_INTERVAL_SEC.
+
+ Dedupe points, store 24 h of data, convert altitudes to feet by default.
+
+ Handle 401s automatically.
+
+ Persist new token and expiration in config.json.
+
+ Log each poll summary:
+
+[HH:MM:SS] pts=452 lat=39.72 lon=-85.88 alt=43000ft hdg=107
+
+8. Acceptance Criteria
+
+✅ API calls authorized with Authorization: Bearer <token>
+✅ Token refreshes automatically when expired
+✅ /tracks/all returns valid flight path data
+✅ Polls every 30 s without manual restart
+✅ Keeps 24 h rolling buffer
+✅ Altitude displayed in configured units (ft default)
+✅ Clears and restarts cleanly on aircraft change
+
+Summary for Replit
+
+Implement OpenSky integration using the provided Bearer token and full OAuth refresh logic.
+Maintain a 30 s polling loop, caching 24 h of history, writing results to /data/track_active.json.
+Use Authorization: Bearer <token> for all requests, refresh automatically, and prepare for future multi-aircraft expansion.
