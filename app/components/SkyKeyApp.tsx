@@ -66,14 +66,15 @@ const planeIcon = (heading?: number) =>
   new L.DivIcon({
     className: "",
     html: `<div style="transform: rotate(${heading ?? 0}deg); transform-origin: center;">
-      <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='42' height='42'>
+      <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='40' height='40'>
         <g transform='translate(24, 24)'>
-          <path fill='#3b82f6' stroke='white' stroke-width='2' d='M0,-18 L-4,-8 L-12,-6 L-12,-2 L-4,-4 L-4,8 L-6,12 L-2,12 L0,10 L2,12 L6,12 L4,8 L4,-4 L12,-2 L12,-6 L4,-8 Z'/>
-          <circle cx='0' cy='-2' r='3' fill='white' opacity='0.8'/>
+          <path fill='#3b82f6' stroke='white' stroke-width='1.5' 
+                d='M0,-16 L3,-14 L10,-4 L10,0 L4,0 L4,6 L7,10 L3,10 L0,8 L-3,10 L-7,10 L-4,6 L-4,0 L-10,0 L-10,-4 L-3,-14 Z'/>
+          <ellipse cx='0' cy='-8' rx='2.5' ry='4' fill='#1e40af' opacity='0.6'/>
         </g>
       </svg>
     </div>`,
-    iconAnchor: [21, 21],
+    iconAnchor: [20, 20],
   });
 
 // ---------- Map helpers ----------
@@ -368,13 +369,32 @@ export default function SkyKeyApp() {
     }
   }, []);
 
-  const polyline = useMemo(
-    () =>
-      points.length
-        ? (points.map((p) => [p.lat, p.lon]) as LatLngExpression[])
-        : [],
-    [points],
-  );
+  // Split track into two segments: completed (origin to current) and remaining (current to destination)
+  const completedSegment = useMemo(() => {
+    if (!filteredTrackPoints.length) return [];
+    
+    const segment: LatLngExpression[] = [];
+    
+    // Add origin airport if available
+    if (Number.isFinite(track?.originInfo?.lat) && Number.isFinite(track?.originInfo?.lon)) {
+      segment.push([track.originInfo.lat!, track.originInfo.lon!]);
+    }
+    
+    // Add all actual track points
+    filteredTrackPoints.forEach(p => segment.push([p.lat, p.lon]));
+    
+    return segment;
+  }, [filteredTrackPoints, track?.originInfo]);
+
+  const remainingSegment = useMemo(() => {
+    if (!filteredTrackPoints.length || !destination) return [];
+    
+    const lastPoint = filteredTrackPoints[filteredTrackPoints.length - 1];
+    return [
+      [lastPoint.lat, lastPoint.lon],
+      [destination.lat, destination.lon]
+    ] as LatLngExpression[];
+  }, [filteredTrackPoints, destination]);
 
   // reset live path when switching aircraft
   useEffect(() => {
@@ -475,12 +495,21 @@ export default function SkyKeyApp() {
               attribution="&copy; OpenStreetMap"
             />
             {points.length > 0 && <FitBounds points={points} />}
-            {polyline.length > 1 && (
+            {completedSegment.length > 1 && (
               <Polyline
-                positions={polyline}
+                positions={completedSegment}
                 color="#a855f7"
                 weight={4}
                 opacity={0.9}
+              />
+            )}
+            {remainingSegment.length > 1 && (
+              <Polyline
+                positions={remainingSegment}
+                color="#94a3b8"
+                weight={4}
+                opacity={0.6}
+                dashArray="8, 8"
               />
             )}
             {origin && (

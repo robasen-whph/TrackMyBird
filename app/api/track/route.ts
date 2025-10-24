@@ -174,7 +174,7 @@ export async function GET(req: Request) {
     let firstSeen: number | null = null;
     let lastSeen: number | null = null;
 
-    // Try to get flight metadata from /flights endpoint
+    // Try to get flight metadata from OpenSky /flights endpoint
     try {
       const now = Math.floor(Date.now() / 1000);
       const begin = now - 7 * 24 * 3600; // last 7 days
@@ -187,10 +187,35 @@ export async function GET(req: Request) {
         destinationAirport = latestFlight.estArrivalAirport || null;
         firstSeen = latestFlight.firstSeen || null;
         lastSeen = latestFlight.lastSeen || null;
-        console.log(`[TRACK ${hex}] Flight: ${originAirport} → ${destinationAirport}`);
+        console.log(`[TRACK ${hex}] OpenSky flight: ${originAirport} → ${destinationAirport}`);
       }
     } catch (e) {
-      console.log(`[TRACK ${hex}] Could not fetch flight metadata:`, e);
+      console.log(`[TRACK ${hex}] Could not fetch OpenSky flight metadata:`, e);
+    }
+
+    // Fallback to AviationStack if we didn't get origin/destination from OpenSky
+    if ((!originAirport || !destinationAirport) && tail && process.env.AVIATIONSTACK_API_KEY) {
+      try {
+        console.log(`[TRACK ${hex}] Trying AviationStack with tail ${tail}`);
+        const aviationStackUrl = `http://api.aviationstack.com/v1/flights?access_key=${process.env.AVIATIONSTACK_API_KEY}&flight_iata=${tail}&limit=1`;
+        const asResponse = await fetch(aviationStackUrl);
+        
+        if (asResponse.ok) {
+          const asData: any = await asResponse.json();
+          if (asData.data && asData.data.length > 0) {
+            const flight = asData.data[0];
+            if (!originAirport) {
+              originAirport = flight.departure?.icao || flight.departure?.iata || null;
+            }
+            if (!destinationAirport) {
+              destinationAirport = flight.arrival?.icao || flight.arrival?.iata || null;
+            }
+            console.log(`[TRACK ${hex}] AviationStack flight: ${originAirport} → ${destinationAirport}`);
+          }
+        }
+      } catch (e) {
+        console.log(`[TRACK ${hex}] Could not fetch AviationStack data:`, e);
+      }
     }
 
     // Fetch airport details
