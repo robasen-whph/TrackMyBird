@@ -69,6 +69,7 @@ export async function GET(req: Request) {
 
   try {
     const token = await getToken();
+    console.log(`[TRACK ${hex}] OAuth token obtained: ${token.substring(0, 20)}...`);
     const auth = { Accept: "application/json", Authorization: `Bearer ${token}` };
 
     const now = Math.floor(Date.now() / 1000);
@@ -78,10 +79,10 @@ export async function GET(req: Request) {
     try {
       const begin = now - 7 * 24 * 3600; // last 7 days
       const end = now;
-      const flights: any = await getJSON<any>(
-        `https://opensky-network.org/api/flights/aircraft?icao24=${hex}&begin=${begin}&end=${end}`,
-        auth
-      );
+      const flightUrl = `https://opensky-network.org/api/flights/aircraft?icao24=${hex}&begin=${begin}&end=${end}`;
+      console.log(`[TRACK ${hex}] Fetching flights from: ${flightUrl}`);
+      const flights: any = await getJSON<any>(flightUrl, auth);
+      console.log(`[TRACK ${hex}] Flights response:`, JSON.stringify(flights).substring(0, 200));
       
       if (flights && flights.length > 0) {
         const latestFlight = flights[flights.length - 1];
@@ -90,19 +91,22 @@ export async function GET(req: Request) {
         firstSeen = latestFlight.firstSeen || null;
         lastSeen = latestFlight.lastSeen || null;
         tail = latestFlight.callsign?.trim() || tail;
+        console.log(`[TRACK ${hex}] Flight info: origin=${originAirport}, dest=${destinationAirport}`);
       }
     } catch (e) {
-      // flight data not available, continue
+      console.log(`[TRACK ${hex}] Flight data error:`, e);
     }
 
     for (const t of tries) {
       try {
-        const trk: any = await getJSON<any>(
-          `https://opensky-network.org/api/tracks/all?icao24=${hex}&time=${t}`,
-          auth
-        );
+        const trackUrl = `https://opensky-network.org/api/tracks/all?icao24=${hex}&time=${t}`;
+        console.log(`[TRACK ${hex}] Trying track at time=${t} (${t === 0 ? 'now' : new Date(t * 1000).toISOString()})`);
+        const trk: any = await getJSON<any>(trackUrl, auth);
+        console.log(`[TRACK ${hex}] Track response at time=${t}: path length=${trk?.path?.length || 0}, callsign=${trk?.callsign}`);
+        
         const path: any[] = trk?.path || [];
         if (path.length) {
+          console.log(`[TRACK ${hex}] Found ${path.length} points in track`);
           points = path
             .map((p) => ({
               lat: p.latitude,
@@ -114,18 +118,22 @@ export async function GET(req: Request) {
             }))
             .filter((pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lon));
           tail = trk?.callsign ?? tail;
-          if (points.length) break;
+          if (points.length) {
+            console.log(`[TRACK ${hex}] Successfully got ${points.length} valid points`);
+            break;
+          }
         }
       } catch (e) {
-        // ignore 404s and keep trying
+        console.log(`[TRACK ${hex}] Track error at time=${t}:`, e);
       }
     }
   } catch (e) {
-    // token failure: fall through to state fallback below
+    console.log(`[TRACK ${hex}] OAuth token failure:`, e);
   }
 
   // fallback: live state (unauthenticated)
   if (!points.length) {
+    console.log(`[TRACK ${hex}] No track points found, falling back to live state`);
     try {
       const state: any = await getJSON<any>(
         `https://opensky-network.org/api/states/all?icao24=${hex}`,
@@ -133,6 +141,7 @@ export async function GET(req: Request) {
       );
       const row = state?.states?.[0];
       if (row && Number.isFinite(row[6]) && Number.isFinite(row[5])) {
+        console.log(`[TRACK ${hex}] Got live state fallback point`);
         points = [
           {
             lat: row[6], // latitude
@@ -145,7 +154,9 @@ export async function GET(req: Request) {
         ];
         tail = typeof row[1] === "string" ? row[1].trim() || null : tail;
       }
-    } catch {}
+    } catch {
+      console.log(`[TRACK ${hex}] Live state fallback also failed`);
+    }
   }
 
   // Fetch airport info if we have airport codes
