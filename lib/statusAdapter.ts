@@ -5,6 +5,7 @@
 
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
+import { appConfig } from "@/config/app";
 
 // Types
 export interface FlightStatusParams {
@@ -101,7 +102,7 @@ async function refreshOpenSkyToken() {
   const config = getConfig();
   const body = new URLSearchParams({
     grant_type: "client_credentials",
-    client_id: process.env.OPENSKY_CLIENT_ID || "",
+    client_id: appConfig.opensky.clientId,
     client_secret: process.env.OPENSKY_CLIENT_SECRET || "",
   });
   

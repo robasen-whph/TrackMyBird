@@ -1,118 +1,45 @@
 /**
- * Centralized secret validation for TrackMyBird
- * Validates all required environment variables at boot time
+ * Validates that all SENSITIVE secrets are present
+ * Non-sensitive config is handled by config/app.ts
  */
 
-interface Secrets {
-  // Required secrets
-  appUrl: string;
-  sessionSecret: string;
+const REQUIRED_SECRETS = [
+  // Authentication & Encryption
+  'SESSION_SECRET',           // SENSITIVE: Session encryption key
   
-  // SMTP configuration
-  smtpHost: string;
-  smtpPort: number;
-  smtpUser: string;
-  smtpPass: string;
-  emailFrom: string;
+  // Email Credentials
+  'SMTP_USER',               // SENSITIVE: SMTP username
+  'SMTP_PASS',               // SENSITIVE: SMTP password
   
-  // Provider API keys (optional, warnings only)
-  flightAwareApiKey?: string;
-  openskyClientId?: string;
-  openskyClientSecret?: string;
-  aviationStackApiKey?: string;
-}
+  // API Keys & Secrets
+  'OPENSKY_CLIENT_SECRET',   // SENSITIVE: OAuth secret
+  'FLIGHTAWARE_API_KEY',     // SENSITIVE: API key
+  'AVIATIONSTACK_API_KEY',   // SENSITIVE: API key
+] as const;
 
-function validateRequired(key: string, value: string | undefined): string {
-  if (!value || value.trim() === '') {
-    throw new Error(`Missing required secret: ${key}`);
-  }
-  return value.trim();
-}
+// REMOVED from required secrets (now in config/app.ts with defaults):
+// - APP_URL (public domain name)
+// - EMAIL_FROM (public email address)
+// - SMTP_HOST (public hostname)
+// - SMTP_PORT (public port number)
+// - OPENSKY_CLIENT_ID (public client ID, like a username)
 
-function validateUrl(url: string, key: string): string {
-  try {
-    const parsed = new URL(url);
-    if (!parsed.protocol || !parsed.protocol.match(/^https?:$/)) {
-      throw new Error(`${key} must be an absolute URL with http:// or https:// scheme`);
+export function validateSecrets(): void {
+  const missing: string[] = [];
+  
+  for (const key of REQUIRED_SECRETS) {
+    if (!process.env[key]) {
+      missing.push(key);
     }
-    return url;
-  } catch (e) {
-    throw new Error(`${key} must be a valid absolute URL (got: ${url})`);
   }
-}
-
-function validatePort(port: string | undefined, key: string): number {
-  const parsed = parseInt(port || '', 10);
-  if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
-    throw new Error(`${key} must be a valid port number (1-65535)`);
-  }
-  return parsed;
-}
-
-function getOptional(key: string): string | undefined {
-  const value = process.env[key];
-  if (!value || value.trim() === '') {
-    console.warn(`[secrets] Warning: ${key} not set (provider functionality may be limited)`);
-    return undefined;
-  }
-  return value.trim();
-}
-
-/**
- * Load and validate all secrets
- * Throws on missing required secrets
- * Warns on missing optional provider keys
- */
-export function loadSecrets(): Secrets {
-  // Required secrets
-  const appUrl = validateUrl(
-    validateRequired('APP_URL', process.env.APP_URL),
-    'APP_URL'
-  );
-  const sessionSecret = validateRequired('SESSION_SECRET', process.env.SESSION_SECRET);
   
-  // SMTP configuration
-  const smtpHost = validateRequired('SMTP_HOST', process.env.SMTP_HOST);
-  // SMTP_PORT is optional - defaults to 587 (standard TLS port)
-  const smtpPort = process.env.SMTP_PORT 
-    ? validatePort(process.env.SMTP_PORT, 'SMTP_PORT')
-    : 587;
-  const smtpUser = validateRequired('SMTP_USER', process.env.SMTP_USER);
-  const smtpPass = validateRequired('SMTP_PASS', process.env.SMTP_PASS);
-  const emailFrom = validateRequired('EMAIL_FROM', process.env.EMAIL_FROM);
-  
-  // Provider keys (optional, warnings only)
-  const flightAwareApiKey = getOptional('FLIGHTAWARE_API_KEY');
-  const openskyClientId = getOptional('OPENSKY_CLIENT_ID');
-  const openskyClientSecret = getOptional('OPENSKY_CLIENT_SECRET');
-  const aviationStackApiKey = getOptional('AVIATIONSTACK_API_KEY');
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing required secrets: ${missing.join(', ')}\n` +
+      `Please add these to Replit Secrets.\n` +
+      `Non-sensitive config (APP_URL, SMTP_HOST, etc.) can be set in config/app.ts`
+    );
+  }
   
   console.log('[secrets] ✓ ok');
-  
-  return {
-    appUrl,
-    sessionSecret,
-    smtpHost,
-    smtpPort,
-    smtpUser,
-    smtpPass,
-    emailFrom,
-    flightAwareApiKey,
-    openskyClientId,
-    openskyClientSecret,
-    aviationStackApiKey,
-  };
 }
-
-// Export singleton instance
-let secretsCache: Secrets | null = null;
-
-export function getSecrets(): Secrets {
-  if (!secretsCache) {
-    secretsCache = loadSecrets();
-  }
-  return secretsCache;
-}
-
-// Export typed object for use across the app
-export const secrets = getSecrets();
