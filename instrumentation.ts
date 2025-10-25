@@ -5,9 +5,9 @@
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    // Load and validate secrets at boot
-    const { getSecrets } = await import('./config/secrets');
-    getSecrets();
+    // Validate secrets at boot
+    const { validateSecrets } = await import('./config/secrets');
+    validateSecrets();
     
     console.log('[health] ready');
   }

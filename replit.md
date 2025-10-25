@@ -50,7 +50,8 @@ TrackMyBird is a real-time flight tracking application specifically designed to 
 │   ├── layout.tsx         # Root layout
 │   └── page.tsx           # Home page
 ├── config/                # Configuration
-│   └── secrets.ts         # Centralized secret validation
+│   ├── app.ts             # Non-sensitive config (public values with defaults)
+│   └── secrets.ts         # Sensitive secret validation
 ├── lib/                   # Utility libraries
 │   ├── nnumber-converter.ts # N-number to ICAO hex converter
 │   ├── opensky.ts         # OpenSky API integration
@@ -61,10 +62,25 @@ TrackMyBird is a real-time flight tracking application specifically designed to 
 └── next.config.mjs        # Next.js configuration
 ```
 
-## API Configuration
-The application uses OpenSky Network API credentials stored in `config.json`:
-- Client ID: nycrobaviation-api-client
-- OAuth authentication for extended API access
+## Configuration
+
+### Sensitive Secrets (Replit Secrets)
+The following **6 sensitive values** must be stored as Replit Secrets:
+- `SESSION_SECRET` - Session encryption key
+- `SMTP_USER` - SMTP username
+- `SMTP_PASS` - SMTP password
+- `OPENSKY_CLIENT_SECRET` - OpenSky OAuth secret
+- `FLIGHTAWARE_API_KEY` - FlightAware API key
+- `AVIATIONSTACK_API_KEY` - AviationStack API key
+
+### Public Configuration (`config/app.ts`)
+Non-sensitive configuration with sensible defaults (can be overridden via environment variables):
+- `APP_URL` - Application URL (default: `http://localhost:5000`)
+- `EMAIL_FROM` - From email address (default: `noreply@trackmybird.net`)
+- `SMTP_HOST` - SMTP hostname (default: `smtp.gmail.com`)
+- `SMTP_PORT` - SMTP port (default: `587`)
+- `OPENSKY_CLIENT_ID` - OpenSky client ID (default: `nycrobaviation-api-client`)
+- Cache TTLs, rate limits, and other feature flags
 
 ## Running the Application
 The application runs on port 5000 in the Replit environment:
@@ -74,12 +90,18 @@ The application runs on port 5000 in the Replit environment:
 
 ## Recent Changes (Oct 25, 2025)
 
-### Latest: Production Infrastructure (Chunks 0-2)
+### Latest: Configuration Refactoring
+- **Split configuration into secrets vs public config**:
+  - Created `config/app.ts` for non-sensitive values with defaults (APP_URL, SMTP_HOST, EMAIL_FROM, etc.)
+  - Updated `config/secrets.ts` to only validate 6 sensitive secrets (down from 11)
+  - Easier local development - no need to set up secrets for public information
+  - Sensitive secrets: SESSION_SECRET, SMTP_USER/PASS, OPENSKY_CLIENT_SECRET, FLIGHTAWARE_API_KEY, AVIATIONSTACK_API_KEY
+
+### Earlier: Production Infrastructure (Chunks 0-2)
 - **Chunk 0 - Health & Secrets Management**:
   - Created `/api/health` endpoint with service info and uptime
-  - Centralized secrets validation in `config/secrets.ts` (validates all required env vars at boot)
+  - Centralized secrets validation in `config/secrets.ts` (validates required secrets at boot)
   - Added boot logging via `instrumentation.ts` for troubleshooting
-  - Required secrets: `APP_URL`, `SMTP_*`, `EMAIL_FROM`, `SESSION_SECRET`, `OPENSKY_*`, `FLIGHTAWARE_API_KEY`, `AVIATIONSTACK_API_KEY`
 
 - **Chunk 1 - Provider Cascade & Caching**:
   - Created `lib/statusAdapter.ts` - centralized provider logic with FlightAware → OpenSky → AviationStack cascade
