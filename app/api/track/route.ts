@@ -105,6 +105,78 @@ async function fetchWithAuth<T>(url: string, token: string): Promise<T> {
   return r.json();
 }
 
+// Clean city names by removing timezone prefixes like "America/Los_Angeles" -> "Los Angeles"
+function cleanCityName(city: string | undefined): string | undefined {
+  if (!city) return undefined;
+  
+  // Remove timezone prefix (e.g., "America/Los_Angeles" -> "Los_Angeles")
+  const withoutTimezone = city.includes('/') ? city.split('/').pop() || city : city;
+  
+  // Replace underscores with spaces (e.g., "Los_Angeles" -> "Los Angeles")
+  return withoutTimezone.replace(/_/g, ' ');
+}
+
+// Fetch flight data from FlightAware by tail number
+async function fetchFlightAwareData(tail: string) {
+  const apiKey = process.env.FLIGHTAWARE_API_KEY;
+  if (!apiKey) {
+    console.log('[FLIGHTAWARE] API key not configured');
+    return null;
+  }
+
+  try {
+    const url = `https://aeroapi.flightaware.com/aeroapi/flights/${encodeURIComponent(tail)}`;
+    console.log(`[FLIGHTAWARE] Fetching: ${url}`);
+    
+    const response = await fetch(url, {
+      headers: {
+        "x-apikey": apiKey,
+      },
+      cache: "no-store",
+    });
+    
+    if (!response.ok) {
+      console.log(`[FLIGHTAWARE] Request failed: ${response.status}`);
+      return null;
+    }
+    
+    const data: any = await response.json();
+    
+    // Get the most recent flight (first in the array, sorted by scheduled_out desc)
+    if (data.flights && data.flights.length > 0) {
+      const flight = data.flights[0];
+      
+      return {
+        origin: flight.origin ? {
+          code: flight.origin.code_icao || flight.origin.code_iata || flight.origin.code,
+          name: flight.origin.name,
+          city: cleanCityName(flight.origin.city),
+          lat: undefined, // FlightAware doesn't provide coordinates directly
+          lon: undefined,
+        } : null,
+        destination: flight.destination ? {
+          code: flight.destination.code_icao || flight.destination.code_iata || flight.destination.code,
+          name: flight.destination.name,
+          city: cleanCityName(flight.destination.city),
+          lat: undefined,
+          lon: undefined,
+        } : null,
+        fa_flight_id: flight.fa_flight_id,
+        ident: flight.ident || flight.ident_icao,
+        scheduled_out: flight.scheduled_out,
+        scheduled_in: flight.scheduled_in,
+        actual_off: flight.actual_off,
+        actual_on: flight.actual_on,
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('[FLIGHTAWARE] Error:', error);
+    return null;
+  }
+}
+
 // Fetch airport info (unauthenticated, separate API)
 async function fetchAirportInfo(icao: string) {
   try {
@@ -184,29 +256,86 @@ export async function GET(req: Request) {
     const tail = trackData?.callsign?.trim() || null;
     let originAirport: string | null = null;
     let destinationAirport: string | null = null;
+    let originInfo: any = null;
+    let destinationInfo: any = null;
     let firstSeen: number | null = null;
     let lastSeen: number | null = null;
 
-    // Try to get flight metadata from OpenSky /flights endpoint
-    try {
-      const now = Math.floor(Date.now() / 1000);
-      const begin = now - 7 * 24 * 3600; // last 7 days
-      const flightUrl = `https://opensky-network.org/api/flights/aircraft?icao24=${hex}&begin=${begin}&end=${now}`;
-      const flights: any = await fetchWithAuth(flightUrl, token);
+    // PRIMARY: Try FlightAware first (most reliable for origin/destination)
+    if (tail) {
+      const faData = await fetchFlightAwareData(tail);
       
-      if (flights && flights.length > 0) {
-        const latestFlight = flights[flights.length - 1];
-        originAirport = latestFlight.estDepartureAirport || null;
-        destinationAirport = latestFlight.estArrivalAirport || null;
-        firstSeen = latestFlight.firstSeen || null;
-        lastSeen = latestFlight.lastSeen || null;
-        console.log(`[TRACK ${hex}] OpenSky flight: ${originAirport} → ${destinationAirport}`);
+      if (faData) {
+        console.log(`[TRACK ${hex}] FlightAware success: ${faData.origin?.code} → ${faData.destination?.code}`);
+        
+        if (faData.origin) {
+          originAirport = faData.origin.code;
+          originInfo = {
+            icao: faData.origin.code,
+            name: faData.origin.name,
+            city: faData.origin.city,
+            country: "Unknown", // FlightAware doesn't provide country in flights endpoint
+            country_code: "XX",
+            lat: faData.origin.lat,
+            lon: faData.origin.lon,
+          };
+        }
+        
+        if (faData.destination) {
+          destinationAirport = faData.destination.code;
+          destinationInfo = {
+            icao: faData.destination.code,
+            name: faData.destination.name,
+            city: faData.destination.city,
+            country: "Unknown",
+            country_code: "XX",
+            lat: faData.destination.lat,
+            lon: faData.destination.lon,
+          };
+        }
+        
+        // Use FlightAware timing data
+        if (faData.scheduled_out) {
+          firstSeen = new Date(faData.scheduled_out).getTime() / 1000;
+        }
+        if (faData.scheduled_in) {
+          lastSeen = new Date(faData.scheduled_in).getTime() / 1000;
+        }
+      } else {
+        console.log(`[TRACK ${hex}] FlightAware returned no data for tail ${tail}`);
       }
-    } catch (e) {
-      console.log(`[TRACK ${hex}] Could not fetch OpenSky flight metadata:`, e);
     }
 
-    // Fallback to AviationStack if we didn't get origin/destination from OpenSky
+    // FALLBACK: Try OpenSky /flights endpoint if FlightAware didn't work
+    if (!originAirport || !destinationAirport) {
+      try {
+        const now = Math.floor(Date.now() / 1000);
+        const begin = now - 7 * 24 * 3600; // last 7 days
+        const flightUrl = `https://opensky-network.org/api/flights/aircraft?icao24=${hex}&begin=${begin}&end=${now}`;
+        const flights: any = await fetchWithAuth(flightUrl, token);
+        
+        if (flights && flights.length > 0) {
+          const latestFlight = flights[flights.length - 1];
+          if (!originAirport) {
+            originAirport = latestFlight.estDepartureAirport || null;
+          }
+          if (!destinationAirport) {
+            destinationAirport = latestFlight.estArrivalAirport || null;
+          }
+          if (!firstSeen) {
+            firstSeen = latestFlight.firstSeen || null;
+          }
+          if (!lastSeen) {
+            lastSeen = latestFlight.lastSeen || null;
+          }
+          console.log(`[TRACK ${hex}] OpenSky flight: ${originAirport} → ${destinationAirport}`);
+        }
+      } catch (e) {
+        console.log(`[TRACK ${hex}] Could not fetch OpenSky flight metadata:`, e);
+      }
+    }
+
+    // FALLBACK 2: Try AviationStack if still no data
     if ((!originAirport || !destinationAirport) && tail && process.env.AVIATIONSTACK_API_KEY) {
       try {
         console.log(`[TRACK ${hex}] Trying AviationStack with tail ${tail}`);
@@ -231,15 +360,30 @@ export async function GET(req: Request) {
       }
     }
 
-    // Fetch airport details
-    let originInfo = null;
-    let destinationInfo = null;
-    
-    if (originAirport) {
-      originInfo = await fetchAirportInfo(originAirport);
+    // Fetch airport coordinates from airport-data.com if missing
+    // FlightAware doesn't provide coordinates, so we always need to fetch them
+    if (originAirport && (!originInfo?.lat || !originInfo?.lon)) {
+      const airportData = await fetchAirportInfo(originAirport);
+      if (airportData) {
+        // Merge FlightAware data (name, city) with airport-data.com coordinates
+        originInfo = {
+          ...airportData,
+          name: originInfo?.name || airportData.name,
+          city: originInfo?.city || airportData.city,
+        };
+      }
     }
-    if (destinationAirport) {
-      destinationInfo = await fetchAirportInfo(destinationAirport);
+    
+    if (destinationAirport && (!destinationInfo?.lat || !destinationInfo?.lon)) {
+      const airportData = await fetchAirportInfo(destinationAirport);
+      if (airportData) {
+        // Merge FlightAware data (name, city) with airport-data.com coordinates
+        destinationInfo = {
+          ...airportData,
+          name: destinationInfo?.name || airportData.name,
+          city: destinationInfo?.city || airportData.city,
+        };
+      }
     }
 
     return NextResponse.json({
