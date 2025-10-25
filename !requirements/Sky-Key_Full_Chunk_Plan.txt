@@ -1,0 +1,215 @@
+Sky-Key Development Plan (Full Chunk Set)
+
+Overview:
+This plan defines the incremental build of the Sky-Key web app on Replit. Each chunk is self-contained, testable, and aligned with the current Next.js 15 + React 19 + Tailwind 4 stack. Existing ADS-B and FlightAware integrations remain functional. OAuth is deferred; local auth will be introduced later.
+
+---------------------------------------------------------------------
+Chunk 0 — Healthcheck + Config Guard
+Objective:
+Ensure the app boots reliably with secrets validated.
+
+Inputs:
+SESSION_SECRET
+OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET
+AVIATIONSTACK_API_KEY, FLIGHTAWARE_API_KEY
+(APP_URL, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM) may be added
+
+Build:
+• Create /api/health route returning JSON { ok:true, service:"trackmybird", version, time:ISO }.
+• Add config/secrets.ts that validates required keys, warns if provider keys missing, exports typed secrets object.
+• Log “secrets: ok” on boot.
+
+Accept:
+• All required secrets → 200 OK from /api/health.
+• Missing required secret → clear startup error.
+• Existing tracking endpoints still function.
+
+Edge cases:
+• Reject APP_URL without scheme.
+• Parse SMTP_PORT to int; fail if NaN.
+
+---------------------------------------------------------------------
+Chunk 1 — Provider Adapter + Short Cache for /api/track
+Objective:
+Preserve FlightAware-first stack, add adapter + short cache.
+
+Inputs:
+FLIGHTAWARE_API_KEY, OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET, AVIATIONSTACK_API_KEY
+
+Build:
+• Create lib/statusAdapter.ts with getFlightStatus({ hex?, tail? }).
+• Call order: FlightAware → OpenSky → AviationStack → airport-data.com.
+• Add 10–15s in-memory cache keyed by hex/tail.
+• Normalize output to current /api/track response.
+• Map provider errors (401/403/429 → fallback, etc.).
+• Maintain US-only validation.
+
+Accept:
+• /api/track output unchanged for success.
+• Cached responses used within 15s.
+• 429 or fallback behavior verified via logs.
+
+---------------------------------------------------------------------
+Chunk 2 — Harden /api/random and /api/resolve
+Objective:
+Stabilize helper endpoints; add input/output guarantees.
+
+Inputs:
+OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET
+
+Build:
+• /api/random – cache 5s list, rate-limit 6/min/IP.
+• /api/resolve – strict input validation, 30/min/IP.
+• 400 on invalid, 503 on upstream error.
+
+Accept:
+• /api/random returns valid US hex; 404 when none.
+• /api/resolve correctly maps tail↔hex.
+• Rate limits trigger correctly.
+
+---------------------------------------------------------------------
+Chunk 3 — Local Auth + Email Verification
+Objective:
+Add email+password signup, verify, login, logout.
+
+Inputs:
+DATABASE_URL, APP_URL, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM
+
+Build:
+• Tables: users, email_verifications, sessions.
+• Endpoints: signup, verify, login, logout.
+• Password min 8 chars.
+• Cookies: httpOnly, Secure, SameSite=Lax.
+• TTL default 24h, remember 30d.
+• Email verification single-use 24h.
+
+Accept:
+• Signup→verify→dashboard works.
+• Unverified blocked.
+• Token reuse fails.
+
+---------------------------------------------------------------------
+Chunk 4 — Password Reset
+Objective:
+Allow password recovery.
+
+Build:
+• Table password_resets.
+• Endpoints: forgot (204), reset (204).
+• TTL 15 min, single-use.
+• Invalidate sessions on reset.
+
+Accept:
+• Valid reset changes password.
+• Reused/expired token → 400.
+
+---------------------------------------------------------------------
+Chunk 5 — Aircraft Core
+Objective:
+Persist owner aircraft.
+
+Build:
+• Table aircraft(id, owner_user_id, tail, icao_hex, authorized_at).
+• Endpoints: add/list/delete.
+
+Accept:
+• Add/remove/list works.
+• Tail/hex validation enforced.
+
+---------------------------------------------------------------------
+Chunk 6 — Owner Dashboard UI
+Objective:
+Display aircraft table.
+
+Build:
+• /dashboard with columns: Authorized Date, Tail, Hex, Image placeholder, Status.
+
+Accept:
+• Table renders with placeholder images.
+• Empty state shows “No aircraft yet.”
+
+---------------------------------------------------------------------
+Chunk 7 — Guest Tokens (Create/Expire)
+Objective:
+Generate shareable tracking links.
+
+Build:
+• Table guest_tokens(id, token_hash, issued_by, aircraft_ids[], nickname, expires_at, revoked, first_view_at).
+• Endpoint /api/invites create and revoke.
+• Default 24h, optional 1y.
+
+Accept:
+• Valid links open viewer.
+• Expired/revoked return “Expired.”
+
+---------------------------------------------------------------------
+Chunk 8 — Guest Viewer (No Login)
+Objective:
+Frictionless guest access.
+
+Build:
+• /v/:token route listing aircraft.
+• Valid token shows map/status via /api/track.
+• Expired shows “Expired.”
+
+---------------------------------------------------------------------
+Chunk 9 — Revoke Semantics
+Objective:
+Owners can revoke; guests see only “Expired.”
+
+Build:
+• /api/invites/:id/revoke sets revoked=true.
+
+Accept:
+• Revoked link invalid; guest sees Expired.
+
+---------------------------------------------------------------------
+Chunk 10 — Help Desk Form
+Objective:
+Add support contact.
+
+Build:
+• /support form posts email to help@trackmybird.com.
+• Spam throttle.
+
+Accept:
+• Email delivered; spam blocked.
+
+---------------------------------------------------------------------
+Chunk 11 — Minimal Admin + Metrics
+Objective:
+Add internal dashboard.
+
+Build:
+• /admin with counts: users, verified, aircraft, active/expired tokens.
+• Revoke tokens from table.
+
+Accept:
+• Counts accurate; revoke works.
+
+---------------------------------------------------------------------
+Chunk 12 — Security Hardening
+Objective:
+Add safety nets.
+
+Build:
+• Helmet headers, CSRF, CORS config, input validation, rate limits.
+
+Accept:
+• Automated test verifies headers and 429 behavior.
+
+---------------------------------------------------------------------
+Chunk 13 — Deploy
+Objective:
+Production deployment.
+
+Build:
+• Vercel/Replit deploy pipeline, set secrets, verify /api/health.
+
+Accept:
+• Main branch auto-deploys; smoke test passes.
+
+---------------------------------------------------------------------
+Notes:
+OAuth and owner verification uploads are deferred.
+All chunks build sequentially but independently testable.
