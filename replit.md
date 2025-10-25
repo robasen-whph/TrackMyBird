@@ -1,7 +1,7 @@
 # TrackMyBird - Flight Tracker Application
 
 ## Project Overview
-TrackMyBird is a real-time flight tracking application built with Next.js, React, and Leaflet maps. It uses the OpenSky Network API for aircraft tracking data and AviationStack API for origin/destination airport information, displaying flight paths on an interactive map.
+TrackMyBird is a real-time flight tracking application built with Next.js, React, and Leaflet maps. It uses the OpenSky Network API for aircraft tracking data and FlightAware AeroAPI as the primary source for origin/destination airport information, displaying flight paths on an interactive map.
 
 ## Technology Stack
 - **Frontend Framework**: Next.js 15.5.6 with React 19.2.0
@@ -10,7 +10,8 @@ TrackMyBird is a real-time flight tracking application built with Next.js, React
 - **Language**: TypeScript 5.6.3
 - **APIs**: 
   - OpenSky Network REST API (aircraft tracking, OAuth authenticated)
-  - AviationStack API (origin/destination data, free tier: 100 req/month)
+  - FlightAware AeroAPI (primary origin/destination data, free tier: 500 req/month)
+  - AviationStack API (fallback origin/destination, free tier: 100 req/month)
   - airport-data.com API (airport coordinates and details)
 
 ## Features
@@ -64,7 +65,12 @@ The application runs on port 5000 in the Replit environment:
 - **Migrated OAuth credentials**: Moved from config.json to Replit Secrets for security
 - **Fixed track parsing**: Corrected OpenSky API array format parsing ([time, lat, lon, alt, heading])
 - **Implemented polling**: 30-second client-side updates (user testing at 5 seconds)
-- **Added AviationStack integration**: Fallback API for origin/destination when OpenSky returns 400
+- **FlightAware AeroAPI integration**: PRIMARY source for origin/destination (500 free calls/month)
+  - Replaces unreliable OpenSky /flights endpoint (which often returns 400)
+  - Data cascade: FlightAware → OpenSky /flights → AviationStack fallback
+  - City name cleaning: Removes timezone prefixes (e.g., "America/Los_Angeles" → "Los Angeles")
+  - Merged with airport-data.com for coordinates (FlightAware provides codes/names/cities)
+- **Track button always re-fits**: Clicking Track now always centers/zooms map, even for same aircraft
 - **Airport coordinate lookup**: Integrated airport-data.com for lat/lon coordinates
 - **Track connectivity**: Origin and destination markers now connect to flight path
 - **Dual-color segments**: Purple for completed path, gray dashed for remaining
@@ -77,13 +83,13 @@ The application runs on port 5000 in the Replit environment:
   - Track API now returns proper 404 responses for non-existent aircraft instead of 500 errors
 
 ## API Endpoints
-- `/api/track?hex=<ICAO_HEX>` - Get flight track with origin/destination (uses OpenSky + AviationStack)
-- `/api/flight-info?tail=<TAIL>` - Get flight info from AviationStack (origin/destination)
+- `/api/track?hex=<ICAO_HEX>` - Get flight track with origin/destination (uses OpenSky tracks + FlightAware → OpenSky flights → AviationStack)
 - `/api/resolve?tail=<TAIL_NUMBER>` - Resolve tail number to ICAO hex
 - `/api/random` - Get a random active aircraft
 - `/api/opensky/active` - List active aircraft
 - `/api/opensky/by-tail` - Search by tail number
 - `/api/state` - Get aircraft state
+- `/api/test-flightaware?tail=<TAIL>` - Test FlightAware API integration (debug endpoint)
 
 ## Development Notes
 - The app uses Next.js App Router (not Pages Router)

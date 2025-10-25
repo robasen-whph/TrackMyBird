@@ -262,7 +262,9 @@ export async function GET(req: Request) {
     let lastSeen: number | null = null;
 
     // PRIMARY: Try FlightAware first (most reliable for origin/destination)
-    if (tail) {
+    // Only call FlightAware if we have a valid-looking callsign (at least 3 chars)
+    // OpenSky sometimes returns incomplete callsigns like "N" which will fail
+    if (tail && tail.length >= 3) {
       const faData = await fetchFlightAwareData(tail);
       
       if (faData) {
@@ -304,6 +306,8 @@ export async function GET(req: Request) {
       } else {
         console.log(`[TRACK ${hex}] FlightAware returned no data for tail ${tail}`);
       }
+    } else if (tail && tail.length < 3) {
+      console.log(`[TRACK ${hex}] Skipping FlightAware - callsign too short: "${tail}"`);
     }
 
     // FALLBACK: Try OpenSky /flights endpoint if FlightAware didn't work
