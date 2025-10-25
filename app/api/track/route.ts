@@ -177,6 +177,59 @@ async function fetchFlightAwareData(tail: string) {
   }
 }
 
+// Fetch IFR route waypoints from FlightAware
+async function fetchFlightAwareRoute(faFlightId: string) {
+  const apiKey = process.env.FLIGHTAWARE_API_KEY;
+  if (!apiKey) {
+    console.log('[FLIGHTAWARE ROUTE] API key not configured');
+    return null;
+  }
+
+  try {
+    const url = `https://aeroapi.flightaware.com/aeroapi/flights/${encodeURIComponent(faFlightId)}/route`;
+    console.log(`[FLIGHTAWARE ROUTE] Fetching: ${url}`);
+    
+    const response = await fetch(url, {
+      headers: {
+        "x-apikey": apiKey,
+      },
+      cache: "no-store",
+    });
+    
+    if (!response.ok) {
+      console.log(`[FLIGHTAWARE ROUTE] Request failed: ${response.status}`);
+      return null;
+    }
+    
+    const data: any = await response.json();
+    
+    // Extract waypoints with coordinates
+    if (data.waypoints && Array.isArray(data.waypoints)) {
+      const waypoints = data.waypoints
+        .filter((wp: any) => 
+          wp.latitude !== undefined && 
+          wp.longitude !== undefined &&
+          Number.isFinite(wp.latitude) && 
+          Number.isFinite(wp.longitude)
+        )
+        .map((wp: any) => ({
+          name: wp.name || wp.ident || 'WAYPOINT',
+          lat: wp.latitude,
+          lon: wp.longitude,
+        }));
+      
+      console.log(`[FLIGHTAWARE ROUTE] Found ${waypoints.length} waypoints`);
+      return waypoints;
+    }
+    
+    console.log('[FLIGHTAWARE ROUTE] No waypoints in response');
+    return null;
+  } catch (error) {
+    console.error('[FLIGHTAWARE ROUTE] Error:', error);
+    return null;
+  }
+}
+
 // Fetch airport info (unauthenticated, separate API)
 async function fetchAirportInfo(icao: string) {
   try {
@@ -260,6 +313,7 @@ export async function GET(req: Request) {
     let destinationInfo: any = null;
     let firstSeen: number | null = null;
     let lastSeen: number | null = null;
+    let waypoints: Array<{ name: string; lat: number; lon: number }> | null = null;
 
     // PRIMARY: Try FlightAware first (most reliable for origin/destination)
     // Only call FlightAware if we have a valid-looking callsign (at least 3 chars)
@@ -269,6 +323,11 @@ export async function GET(req: Request) {
       
       if (faData) {
         console.log(`[TRACK ${hex}] FlightAware success: ${faData.origin?.code} → ${faData.destination?.code}`);
+        
+        // Fetch waypoints if we have a fa_flight_id (IFR flights only)
+        if (faData.fa_flight_id) {
+          waypoints = await fetchFlightAwareRoute(faData.fa_flight_id);
+        }
         
         if (faData.origin) {
           originAirport = faData.origin.code;
@@ -400,6 +459,7 @@ export async function GET(req: Request) {
       destinationInfo,
       firstSeen,
       lastSeen,
+      waypoints, // IFR route waypoints (null for VFR or if unavailable)
     });
 
   } catch (error: any) {
