@@ -30,6 +30,11 @@ type AirportInfo = {
   lat?: number;
   lon?: number;
 };
+type Waypoint = {
+  name: string;
+  lat: number;
+  lon: number;
+};
 type Track = {
   hex: string;
   tail?: string | null;
@@ -40,6 +45,7 @@ type Track = {
   destinationInfo?: AirportInfo | null;
   firstSeen?: number | null;
   lastSeen?: number | null;
+  waypoints?: Waypoint[] | null;
 };
 type ApiError = { message?: string };
 
@@ -401,11 +407,21 @@ export default function SkyKeyApp() {
     if (!filteredTrackPoints.length || !destination) return [];
     
     const lastPoint = filteredTrackPoints[filteredTrackPoints.length - 1];
-    return [
-      [lastPoint.lat, lastPoint.lon],
-      [destination.lat, destination.lon]
-    ] as LatLngExpression[];
-  }, [filteredTrackPoints, destination]);
+    const segment: LatLngExpression[] = [[lastPoint.lat, lastPoint.lon]];
+    
+    // Use IFR waypoints if available, otherwise straight line to destination
+    if (track?.waypoints && track.waypoints.length > 0) {
+      // Add each waypoint in order
+      track.waypoints.forEach(wp => {
+        segment.push([wp.lat, wp.lon]);
+      });
+    }
+    
+    // Add final destination
+    segment.push([destination.lat, destination.lon]);
+    
+    return segment;
+  }, [filteredTrackPoints, destination, track?.waypoints]);
 
   // reset live path when switching aircraft
   useEffect(() => {
