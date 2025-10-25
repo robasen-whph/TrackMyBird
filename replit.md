@@ -70,8 +70,11 @@ The application runs on port 5000 in the Replit environment:
 - **Dual-color segments**: Purple for completed path, gray dashed for remaining
 - **Improved aircraft icon**: Modern crisp airplane design with perfect track alignment
 - **Fixed zoom persistence**: Map now maintains user's zoom level during polling updates (only auto-fits on initial aircraft load)
-- **Fixed auto-fit for new aircraft**: Map now correctly auto-fits when loading new random or tracked aircraft
-- **Improved error handling**: Graceful handling of polling errors when aircraft land or leave coverage
+- **Fixed auto-fit for new aircraft**: Map now correctly auto-fits when loading new random or tracked aircraft (deferred lastFittedHexRef update to onFitComplete callback)
+- **Perfect icon alignment**: Airplane icon now precisely aligns with track line at all zoom levels (centered SVG viewBox -24,-24 and iconAnchor [24,24])
+- **Improved error handling**: 
+  - Graceful handling of polling errors when aircraft land or leave coverage
+  - Track API now returns proper 404 responses for non-existent aircraft instead of 500 errors
 
 ## API Endpoints
 - `/api/track?hex=<ICAO_HEX>` - Get flight track with origin/destination (uses OpenSky + AviationStack)
