@@ -329,6 +329,8 @@ export default function SkyKeyApp() {
     if (!h) return;
     setLoading(true);
     setError(null);
+    // Clear the last fitted hex to force re-fit even if same hex
+    lastFittedHexRef.current = null;
     try {
       const t = await fetchTrackByHex(h);
       setTrack(t);
@@ -344,6 +346,8 @@ export default function SkyKeyApp() {
     if (!t) return;
     setLoading(true);
     setError(null);
+    // Clear the last fitted hex to force re-fit even if same hex
+    lastFittedHexRef.current = null;
     try {
       const r = await fetchHexByTail(t);
       setHex(r.hex?.toUpperCase() ?? "");
@@ -360,6 +364,8 @@ export default function SkyKeyApp() {
   const handleRandom = useCallback(async () => {
     setLoading(true);
     setError(null);
+    // Clear the last fitted hex to force re-fit even if same hex
+    lastFittedHexRef.current = null;
     try {
       const r = await fetchRandomHex();
       setHex(r.hex?.toUpperCase() ?? "");
