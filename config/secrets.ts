@@ -71,9 +71,12 @@ export function loadSecrets(): Secrets {
   );
   const sessionSecret = validateRequired('SESSION_SECRET', process.env.SESSION_SECRET);
   
-  // SMTP configuration (all required)
+  // SMTP configuration
   const smtpHost = validateRequired('SMTP_HOST', process.env.SMTP_HOST);
-  const smtpPort = validatePort(process.env.SMTP_PORT, 'SMTP_PORT');
+  // SMTP_PORT is optional - defaults to 587 (standard TLS port)
+  const smtpPort = process.env.SMTP_PORT 
+    ? validatePort(process.env.SMTP_PORT, 'SMTP_PORT')
+    : 587;
   const smtpUser = validateRequired('SMTP_USER', process.env.SMTP_USER);
   const smtpPass = validateRequired('SMTP_PASS', process.env.SMTP_PASS);
   const emailFrom = validateRequired('EMAIL_FROM', process.env.EMAIL_FROM);
