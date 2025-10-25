@@ -4,6 +4,9 @@
  */
 
 export const appConfig = {
+  // Application version
+  version: '0.41.0',
+  
   // Application URL
   url: process.env.APP_URL || 'http://localhost:5000',
   

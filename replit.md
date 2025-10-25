@@ -1,5 +1,8 @@
 # TrackMyBird - Flight Tracker Application
 
+**Current Version:** v0.41.0  
+**Last Updated:** October 25, 2025
+
 ## Project Overview
 TrackMyBird is a real-time flight tracking application specifically designed to help US aircraft owners share tracking with authorized individuals (family, spouses, business partners) despite FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. Built with Next.js, React, and Leaflet maps, it uses mathematical N-number conversion, OpenSky Network API for aircraft tracking, and FlightAware AeroAPI for flight data. **Restricted to US-registered aircraft only (N-numbers).**
 
