@@ -428,8 +428,13 @@ export default function SkyKeyApp() {
         console.log(`[POLL] Updating track for ${hex}`);
         const updatedTrack = await fetchTrackByHex(hex);
         setTrack(updatedTrack);
+        setError(null); // Clear any previous errors on successful update
       } catch (e) {
-        console.error(`[POLL] Failed to update track:`, e);
+        // Silently handle polling errors - aircraft may have landed or left coverage
+        // The last known track data remains displayed
+        const errorMsg = e instanceof Error ? e.message : String(e);
+        console.log(`[POLL] Update unavailable for ${hex}: ${errorMsg}`);
+        // Don't set error state for polling failures to avoid alarming the user
       }
     }, 5000); // 30 seconds -> 5 seconds for testing
 
