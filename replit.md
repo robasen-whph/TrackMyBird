@@ -20,6 +20,10 @@ TrackMyBird is a real-time flight tracking application built with Next.js, React
 - **Dual-Color Track Segments**: 
   - Purple solid line: Completed path (origin → current position)
   - Gray dashed line: Remaining path (current position → destination)
+- **IFR Waypoint Routing**: 
+  - Displays filed IFR flight plan waypoints from FlightAware
+  - Remaining path follows actual planned route through waypoints
+  - Graceful fallback to straight line for VFR flights or when waypoints unavailable
 - **Flight History**: Display historical flight data and routes
 - **Live Updates**: 30-second client-side polling for position updates
 - **Search Functionality**: Find aircraft by tail number or hex code
@@ -70,6 +74,11 @@ The application runs on port 5000 in the Replit environment:
   - Data cascade: FlightAware → OpenSky /flights → AviationStack fallback
   - City name cleaning: Removes timezone prefixes (e.g., "America/Los_Angeles" → "Los Angeles")
   - Merged with airport-data.com for coordinates (FlightAware provides codes/names/cities)
+- **IFR Waypoint Routing**: Integrated FlightAware `/flights/{id}/route` endpoint
+  - Fetches filed IFR flight plan waypoints with coordinates
+  - Remaining path segment now follows waypoints instead of straight line
+  - Graceful fallback: Returns null for VFR flights, landed flights, or when unavailable (404/429)
+  - Frontend automatically uses straight line when waypoints unavailable
 - **Track button always re-fits**: Clicking Track now always centers/zooms map, even for same aircraft
 - **Airport coordinate lookup**: Integrated airport-data.com for lat/lon coordinates
 - **Track connectivity**: Origin and destination markers now connect to flight path
@@ -83,7 +92,7 @@ The application runs on port 5000 in the Replit environment:
   - Track API now returns proper 404 responses for non-existent aircraft instead of 500 errors
 
 ## API Endpoints
-- `/api/track?hex=<ICAO_HEX>` - Get flight track with origin/destination (uses OpenSky tracks + FlightAware → OpenSky flights → AviationStack)
+- `/api/track?hex=<ICAO_HEX>` - Get flight track with origin/destination and waypoints (uses OpenSky tracks + FlightAware flight + route endpoints → OpenSky flights → AviationStack)
 - `/api/resolve?tail=<TAIL_NUMBER>` - Resolve tail number to ICAO hex
 - `/api/random` - Get a random active aircraft
 - `/api/opensky/active` - List active aircraft
