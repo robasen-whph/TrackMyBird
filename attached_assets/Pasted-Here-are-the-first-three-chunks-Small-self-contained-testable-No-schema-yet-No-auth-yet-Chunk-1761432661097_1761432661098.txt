@@ -1,0 +1,144 @@
+Here are the first three chunks. Small, self-contained, testable. No schema yet. No auth yet.
+
+Chunk 0 — Healthcheck + Config Guard
+
+Objective: App boots reliably. Secrets validated.
+Inputs: Replit secrets present or intentionally missing for test:
+
+SESSION_SECRET
+
+OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET
+
+AVIATIONSTACK_API_KEY, FLIGHTAWARE_API_KEY
+
+Add now (empty allowed for test): APP_URL, SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM
+
+Build:
+
+GET /api/health → 200 JSON: { ok:true, service:"trackmybird", version:"<pkg>", time:"ISO8601" }.
+
+config/secrets.ts:
+
+Validate: APP_URL (absolute URL), SMTP_*, EMAIL_FROM, SESSION_SECRET. Throw readable error if missing.
+
+Warn only if any provider key missing (FLIGHTAWARE_API_KEY, OPENSKY_*, AVIATIONSTACK_API_KEY).
+
+Export a typed object secrets.
+
+Minimal boot log lines: “secrets: ok”, “health: ready”.
+
+Accept:
+
+With required secrets set: /api/health returns as specified.
+
+Remove APP_URL: server fails fast with clear error naming the missing key.
+
+Existing /api/random, /api/resolve, /api/track remain functional.
+
+Edge cases:
+
+Reject APP_URL without scheme.
+
+Parse SMTP_PORT to int; error if NaN.
+
+Notes: No behavior changes to current tracking routes.
+
+Chunk 1 — Provider Adapter + Short Cache for /api/track
+
+Objective: Keep current FlightAware-first stack, add a single adapter and burst protection.
+Inputs: FLIGHTAWARE_API_KEY, OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET, AVIATIONSTACK_API_KEY (optional but supported).
+
+Build:
+
+Create lib/statusAdapter.ts with getFlightStatus({ hex?, tail? }).
+
+Call order:
+
+FlightAware (AeroAPI)
+
+OpenSky
+
+AviationStack
+
+airport-data.com (as today)
+
+Add 10–15 s in-memory cache keyed by {hex|tail}. Cache final normalized object, not raw provider payload.
+
+Normalize response to current /api/track shape. Preserve fields already returned today (state, O/D, IFR route when provided).
+
+Map errors:
+
+Provider 401/403/429 → attempt next provider once, then return 429 { error:"limited", source:"<provider>" }.
+
+Provider 5xx/network → one retry, then fallback.
+
+Unknown tail/hex → 404 { error:"unknown" }.
+
+Keep US-only rules already present (N-numbers and A-prefix ICAO24).
+
+Accept:
+
+/api/track?hex=<active> returns same shape as before, with source noted internally or in a debug field if already present.
+
+Repeated calls within 10–15 s hit cache (verify via log counts).
+
+When FlightAware rate-limited, one fallback occurs and a valid response is returned if possible; otherwise 429 with source:"flightaware".
+
+Edge cases:
+
+Mixed query (both tail and hex) → choose one consistently; document choice.
+
+Invalid inputs → 400 with clear reason.
+
+Notes: Only refactor internals of /api/track to use the adapter. Do not change its public contract.
+
+Chunk 2 — Harden /api/random and /api/resolve
+
+Objective: Stabilize the two helper endpoints; add input/output guarantees and light quotas.
+Inputs: OPENSKY_CLIENT_ID, OPENSKY_CLIENT_SECRET present.
+
+Build:
+
+/api/random:
+
+Keep current behavior: fetch OpenSky states/all, filter airborne US hex, return one { hex, callsign|null }.
+
+Add 5 s cache of the candidate list to prevent rapid upstream hits.
+
+Add Cache-Control: no-store on the response (client should not cache).
+
+/api/resolve:
+
+Inputs: ?tail=N… or ?hex=A… (exactly one).
+
+Validate format strictly. Return 400 on bad input.
+
+If tail: return { tail, hex } using current converter logic; no network call.
+
+If hex: return { hex, tail|null } using current mapping logic (keep existing approach).
+
+Rate limits (in-memory OK for now):
+
+/api/random: 6 req/min/IP.
+
+/api/resolve: 30 req/min/IP.
+
+Accept:
+
+/api/random returns a valid current US hex most of the time; returns 404 when no airborne matches.
+
+/api/resolve:
+
+tail → hex and hex → tail work for valid inputs.
+
+Invalid tail or hex returns 400 with error:"invalid_input".
+
+Hitting /api/random >6 times in a minute from same IP yields 429.
+
+Edge cases:
+
+OpenSky outage → /api/random returns 503 { error:"upstream" }.
+
+Ensure no CORS issues for client usage within the app.
+
+Notes: No UI changes. These endpoints support manual testing and later dashboard work.
