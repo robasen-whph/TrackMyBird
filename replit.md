@@ -37,10 +37,11 @@ TrackMyBird is a real-time flight tracking application specifically designed to 
 ```
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
+│   │   ├── health/        # Health check endpoint
 │   │   ├── opensky/       # OpenSky Network API proxies
-│   │   ├── random/        # Random US aircraft endpoint
-│   │   ├── resolve/       # Resolve tail to hex (algorithmic)
-│   │   └── track/         # Track aircraft endpoint
+│   │   ├── random/        # Random US aircraft endpoint (cached, rate-limited)
+│   │   ├── resolve/       # Resolve tail to hex (validated, rate-limited)
+│   │   └── track/         # Track aircraft endpoint (uses statusAdapter)
 │   ├── components/        # React components
 │   │   ├── AboutModal.tsx # About/LADD explanation modal
 │   │   ├── Controls.tsx   # UI controls
@@ -48,10 +49,15 @@ TrackMyBird is a real-time flight tracking application specifically designed to 
 │   ├── globals.css        # Global styles
 │   ├── layout.tsx         # Root layout
 │   └── page.tsx           # Home page
+├── config/                # Configuration
+│   └── secrets.ts         # Centralized secret validation
 ├── lib/                   # Utility libraries
 │   ├── nnumber-converter.ts # N-number to ICAO hex converter
-│   └── opensky.ts         # OpenSky API integration
+│   ├── opensky.ts         # OpenSky API integration
+│   ├── rateLimiter.ts     # Sliding window rate limiter
+│   └── statusAdapter.ts   # Provider cascade with caching
 ├── config.json            # OpenSky OAuth token storage
+├── instrumentation.ts     # Boot logging
 └── next.config.mjs        # Next.js configuration
 ```
 
@@ -68,7 +74,29 @@ The application runs on port 5000 in the Replit environment:
 
 ## Recent Changes (Oct 25, 2025)
 
-### Latest: Repository Cleanup
+### Latest: Production Infrastructure (Chunks 0-2)
+- **Chunk 0 - Health & Secrets Management**:
+  - Created `/api/health` endpoint with service info and uptime
+  - Centralized secrets validation in `config/secrets.ts` (validates all required env vars at boot)
+  - Added boot logging via `instrumentation.ts` for troubleshooting
+  - Required secrets: `APP_URL`, `SMTP_*`, `EMAIL_FROM`, `SESSION_SECRET`, `OPENSKY_*`, `FLIGHTAWARE_API_KEY`, `AVIATIONSTACK_API_KEY`
+
+- **Chunk 1 - Provider Cascade & Caching**:
+  - Created `lib/statusAdapter.ts` - centralized provider logic with FlightAware → OpenSky → AviationStack cascade
+  - Added 15-second in-memory cache for flight status (99% speed improvement: 1653ms → 14ms on cache hit)
+  - Refactored `/api/track` from 482 to ~100 lines by using statusAdapter
+  - Implemented retry logic for 5xx errors and rate limit detection (401/403/429)
+  - Fixed cache key collisions with `hex:{value}` / `tail:{value}` format
+  - Eliminated config I/O blocking on cache hits (token only fetched when needed)
+
+- **Chunk 2 - Rate Limiting & Validation**:
+  - Created `lib/rateLimiter.ts` with sliding window algorithm and periodic cleanup
+  - `/api/random`: 5-second cache + 6 requests/min rate limit with Cache-Control headers
+  - `/api/resolve`: Strict validation (length, format, sanitization) + 30 requests/min rate limit
+  - Rate limit responses include `Retry-After`, `X-RateLimit-*` headers
+  - Input sanitization removes non-alphanumeric characters to prevent injection attacks
+
+### Earlier: Repository Cleanup
 - **Removed unused API endpoints**: Deleted `/api/test-flightaware`, `/api/airport`, `/api/flight-info`, `/api/state` (not referenced by frontend)
 - **Removed unused folders**: Deleted `scripts/` (PowerShell scripts), `attached_assets/` (screenshots)
 - **Removed unused files**: Deleted `setup_trackmybird.ps1`, `start.sh`, `design_guidelines.md`
@@ -118,9 +146,14 @@ The application runs on port 5000 in the Replit environment:
   - Track API now returns proper 404 responses for non-existent aircraft instead of 500 errors
 
 ## API Endpoints
-- `/api/track?hex=<ICAO_HEX>` - Get flight track with origin/destination and waypoints (uses OpenSky tracks + FlightAware flight + route endpoints → OpenSky flights → AviationStack)
-- `/api/resolve?tail=<TAIL_NUMBER>` - Resolve US tail number to ICAO hex (algorithmic conversion, US-only)
-- `/api/random` - Get a random active US aircraft (filters for hex starting with 'a')
+- `/api/health` - Health check with service info and uptime
+- `/api/track?hex=<ICAO_HEX>` - Get flight track with origin/destination and waypoints
+  - Uses statusAdapter with 15s cache (FlightAware → OpenSky → AviationStack cascade)
+  - Returns track points, origin/destination info, airport coordinates, IFR waypoints
+- `/api/resolve?tail=<TAIL_NUMBER>` - Resolve US tail number to ICAO hex
+  - Algorithmic conversion (zero API calls), strict validation, 30 requests/min rate limit
+- `/api/random` - Get a random active US aircraft
+  - 5s cache, 6 requests/min rate limit, Cache-Control headers
 - `/api/opensky/active` - List active aircraft (used by Controls component)
 - `/api/opensky/by-tail` - Search by tail number (used by Controls component)
 
