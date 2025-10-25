@@ -374,12 +374,18 @@ export default function SkyKeyApp() {
     setError(null);
     // Clear the last fitted hex to force re-fit even if same hex
     lastFittedHexRef.current = null;
+    // Clear both fields first
+    setTail("");
+    setHex("");
     try {
       const r = await fetchRandomHex();
       setHex(r.hex?.toUpperCase() ?? "");
       const tr = await fetchTrackByHex(r.hex);
       setTrack(tr);
-      if (r.tail) setTail(r.tail);
+      // Set tail number from track data if available
+      if (tr.tail) {
+        setTail(tr.tail);
+      }
     } catch (e: any) {
       setError(e.message || "Failed");
       setTrack(null);
