@@ -488,52 +488,66 @@ export default function SkyKeyApp() {
             <span className="text-slate-500"> US aircraft only (N-numbers).</span>
           </p>
         </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="flex flex-col">
-            <label className="text-xs">Tail</label>
-            <input
-              value={tail}
-              onChange={(e) => {
-                setTail(e.target.value.toUpperCase());
-                if (e.target.value && hex) setHex("");
-              }}
-              onKeyDown={onTailKeyDown}
-              placeholder="N260PC"
-              className="px-3 py-2 border rounded w-40"
-            />
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Tail Number Section */}
+          <div className="flex items-end gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-blue-900">Tail Number</label>
+              <input
+                value={tail}
+                onChange={(e) => {
+                  setTail(e.target.value.toUpperCase());
+                  if (e.target.value && hex) setHex("");
+                }}
+                onKeyDown={onTailKeyDown}
+                placeholder="Enter N-number"
+                className="px-3 py-2 border rounded w-40 bg-white"
+              />
+            </div>
+            <button
+              onClick={() => handleFetchByTail(tail)}
+              className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50 hover:bg-blue-700 transition-colors"
+              disabled={loading || !tail}
+            >
+              Lookup
+            </button>
           </div>
-          <button
-            onClick={() => handleFetchByTail(tail)}
-            className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
-            disabled={loading || !tail}
-          >
-            Lookup
-          </button>
 
-          <div className="flex flex-col md:ml-4">
-            <label className="text-xs">Hex</label>
-            <input
-              value={hex}
-              onChange={(e) => {
-                setHex(e.target.value.toUpperCase());
-                if (e.target.value && tail) setTail("");
-              }}
-              onKeyDown={onHexKeyDown}
-              placeholder="AB88B6"
-              className="px-3 py-2 border rounded w-36"
-            />
+          {/* OR Divider */}
+          <div className="flex items-center">
+            <div className="px-3 py-1 bg-slate-200 text-slate-600 text-xs font-semibold rounded-full">
+              OR
+            </div>
           </div>
-          <button
-            onClick={() => handleFetchByHex(hex)}
-            className="px-3 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
-            disabled={loading || !hex}
-          >
-            Track
-          </button>
 
+          {/* Hex Code Section */}
+          <div className="flex items-end gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
+            <div className="flex flex-col">
+              <label className="text-xs font-medium text-purple-900">Hex Code</label>
+              <input
+                value={hex}
+                onChange={(e) => {
+                  setHex(e.target.value.toUpperCase());
+                  if (e.target.value && tail) setTail("");
+                }}
+                onKeyDown={onHexKeyDown}
+                placeholder="Enter hex code"
+                className="px-3 py-2 border rounded w-40 bg-white"
+              />
+            </div>
+            <button
+              onClick={() => handleFetchByHex(hex)}
+              className="px-3 py-2 rounded bg-purple-600 text-white disabled:opacity-50 hover:bg-purple-700 transition-colors"
+              disabled={loading || !hex}
+            >
+              Track
+            </button>
+          </div>
+
+          {/* Random Button */}
           <button
             onClick={handleRandom}
-            className="px-3 py-2 rounded border border-slate-300 md:ml-4 disabled:opacity-50"
+            className="px-4 py-2 rounded border-2 border-slate-300 hover:border-slate-400 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:border-slate-300"
             disabled={loading}
           >
             Random
