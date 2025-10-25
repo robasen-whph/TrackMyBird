@@ -258,7 +258,16 @@ export async function GET(req: Request) {
   const hex = (searchParams.get("hex") || "").toLowerCase();
   
   if (!/^[0-9a-f]{6}$/.test(hex)) {
-    return NextResponse.json({ message: "bad_hex" }, { status: 400 });
+    return NextResponse.json({ 
+      message: "Invalid hex code format. Must be 6 hexadecimal characters." 
+    }, { status: 400 });
+  }
+  
+  // Check if it's a US aircraft (hex must start with 'A')
+  if (!hex.startsWith('a')) {
+    return NextResponse.json({
+      message: "This app currently supports US-registered aircraft only. US aircraft hex codes start with 'A'."
+    }, { status: 400 });
   }
 
   try {

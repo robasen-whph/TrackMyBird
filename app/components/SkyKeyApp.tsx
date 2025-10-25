@@ -9,8 +9,9 @@ import {
   useMap,
 } from "react-leaflet";
 import L, { LatLngBoundsExpression, LatLngExpression } from "leaflet";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Info } from "lucide-react";
 import "leaflet/dist/leaflet.css";
+import { AboutModal } from "./AboutModal";
 
 // ---------- Types ----------
 type Point = {
@@ -244,6 +245,7 @@ export default function SkyKeyApp() {
     }
     return true;
   });
+  const [showAbout, setShowAbout] = useState(false);
   
   // Track the last hex that was auto-fitted to prevent re-fitting on polling updates
   const lastFittedHexRef = useRef<string | null>(null);
@@ -469,11 +471,21 @@ export default function SkyKeyApp() {
     <div className="min-h-screen grid grid-rows-[auto_1fr] bg-slate-50 text-slate-900">
       {/* Header */}
       <header className="p-4 border-b bg-white flex flex-col md:flex-row gap-3 md:items-end md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Sky-Key Tracker</h1>
-          <p className="text-sm text-slate-600">
-            Enter tail or hex. Or pick Random. Map auto-centers on the full
-            path. Icons mark origin, destination, and current position.
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-semibold">TrackMyBird</h1>
+            <button
+              onClick={() => setShowAbout(true)}
+              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+              title="About this app"
+              aria-label="About"
+            >
+              <Info className="w-5 h-5" />
+            </button>
+          </div>
+          <p className="text-sm text-slate-600 mt-1">
+            Track your aircraft and share with family and friends. 
+            <span className="text-slate-500"> US aircraft only (N-numbers).</span>
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -486,7 +498,7 @@ export default function SkyKeyApp() {
                 if (e.target.value && hex) setHex("");
               }}
               onKeyDown={onTailKeyDown}
-              placeholder="N123AB"
+              placeholder="N260PC"
               className="px-3 py-2 border rounded w-40"
             />
           </div>
@@ -507,7 +519,7 @@ export default function SkyKeyApp() {
                 if (e.target.value && tail) setTail("");
               }}
               onKeyDown={onHexKeyDown}
-              placeholder="ABC123"
+              placeholder="AB88B6"
               className="px-3 py-2 border rounded w-36"
             />
           </div>
@@ -669,7 +681,7 @@ export default function SkyKeyApp() {
       </main>
 
       <footer className="p-3 flex items-center justify-between text-xs text-slate-500 border-t bg-white">
-        <span>Sky-Key • Map by OpenStreetMap</span>
+        <span>TrackMyBird • Map by OpenStreetMap</span>
         <div className="flex items-center gap-2">
           {showVersion && <span className="font-mono">v{VERSION}</span>}
           <button
@@ -686,6 +698,8 @@ export default function SkyKeyApp() {
           </button>
         </div>
       </footer>
+
+      <AboutModal isOpen={showAbout} onClose={() => setShowAbout(false)} />
     </div>
   );
 }
