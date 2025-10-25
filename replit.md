@@ -60,7 +60,7 @@ The application runs on port 5000 in the Replit environment:
 - Build: `next build`
 - Production: `next start -p 5000`
 
-## Recent Changes (Oct 24, 2025)
+## Recent Changes (Oct 25, 2025)
 - **Migrated OAuth credentials**: Moved from config.json to Replit Secrets for security
 - **Fixed track parsing**: Corrected OpenSky API array format parsing ([time, lat, lon, alt, heading])
 - **Implemented polling**: 30-second client-side updates (user testing at 5 seconds)
@@ -68,8 +68,10 @@ The application runs on port 5000 in the Replit environment:
 - **Airport coordinate lookup**: Integrated airport-data.com for lat/lon coordinates
 - **Track connectivity**: Origin and destination markers now connect to flight path
 - **Dual-color segments**: Purple for completed path, gray dashed for remaining
-- **Improved aircraft icon**: Modern crisp airplane design (not human-like)
+- **Improved aircraft icon**: Modern crisp airplane design with perfect track alignment
 - **Fixed zoom persistence**: Map now maintains user's zoom level during polling updates (only auto-fits on initial aircraft load)
+- **Fixed auto-fit for new aircraft**: Map now correctly auto-fits when loading new random or tracked aircraft
+- **Improved error handling**: Graceful handling of polling errors when aircraft land or leave coverage
 
 ## API Endpoints
 - `/api/track?hex=<ICAO_HEX>` - Get flight track with origin/destination (uses OpenSky + AviationStack)

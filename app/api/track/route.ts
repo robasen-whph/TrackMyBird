@@ -145,7 +145,20 @@ export async function GET(req: Request) {
     const trackUrl = `https://opensky-network.org/api/tracks/all?icao24=${hex}&time=0`;
     console.log(`[TRACK ${hex}] Fetching: ${trackUrl}`);
     
-    const trackData: any = await fetchWithAuth(trackUrl, token);
+    let trackData: any;
+    try {
+      trackData = await fetchWithAuth(trackUrl, token);
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      // If OpenSky returns 404, the aircraft doesn't exist or has no track data
+      if (errorMsg.includes('404')) {
+        console.log(`[TRACK ${hex}] Aircraft not found (404)`);
+        return NextResponse.json({ message: "Aircraft not found or no track data available" }, { status: 404 });
+      }
+      // For other errors, rethrow
+      throw e;
+    }
+    
     console.log(`[TRACK ${hex}] Response: path=${trackData?.path?.length || 0} points, callsign=${trackData?.callsign}`);
 
     // Extract track points

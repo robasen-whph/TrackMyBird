@@ -401,19 +401,25 @@ export default function SkyKeyApp() {
     ] as LatLngExpression[];
   }, [filteredTrackPoints, destination]);
 
-  // reset live path when switching aircraft and trigger auto-fit for new aircraft
+  // reset live path when switching aircraft
   useEffect(() => {
     setLivePoints([]);
-    if (hex && hex !== lastFittedHexRef.current) {
-      setShouldAutoFit(true);
-      lastFittedHexRef.current = hex;
-    }
   }, [hex]);
   
-  // Callback to reset auto-fit flag after it completes
+  // Trigger auto-fit when points are loaded for a new aircraft
+  useEffect(() => {
+    if (points.length > 0 && track?.hex && track.hex !== lastFittedHexRef.current) {
+      setShouldAutoFit(true);
+    }
+  }, [points.length, track?.hex]);
+  
+  // Callback to reset auto-fit flag and update last fitted hex after fit completes
   const handleFitComplete = useCallback(() => {
     setShouldAutoFit(false);
-  }, []);
+    if (track?.hex) {
+      lastFittedHexRef.current = track.hex;
+    }
+  }, [track?.hex]);
 
   // 30-second polling for live updates
   useEffect(() => {
