@@ -38,9 +38,8 @@ TrackMyBird is a real-time flight tracking application specifically designed to 
 ├── app/                    # Next.js App Router
 │   ├── api/               # API routes
 │   │   ├── opensky/       # OpenSky Network API proxies
-│   │   ├── random/        # Random aircraft endpoint
+│   │   ├── random/        # Random US aircraft endpoint
 │   │   ├── resolve/       # Resolve tail to hex (algorithmic)
-│   │   ├── state/         # Aircraft state endpoint
 │   │   └── track/         # Track aircraft endpoint
 │   ├── components/        # React components
 │   │   ├── AboutModal.tsx # About/LADD explanation modal
@@ -52,7 +51,7 @@ TrackMyBird is a real-time flight tracking application specifically designed to 
 ├── lib/                   # Utility libraries
 │   ├── nnumber-converter.ts # N-number to ICAO hex converter
 │   └── opensky.ts         # OpenSky API integration
-├── config.json            # OpenSky API credentials
+├── config.json            # OpenSky OAuth token storage
 └── next.config.mjs        # Next.js configuration
 ```
 
@@ -69,7 +68,14 @@ The application runs on port 5000 in the Replit environment:
 
 ## Recent Changes (Oct 25, 2025)
 
-### Latest: US-Only N-Number Algorithmic Conversion
+### Latest: Repository Cleanup
+- **Removed unused API endpoints**: Deleted `/api/test-flightaware`, `/api/airport`, `/api/flight-info`, `/api/state` (not referenced by frontend)
+- **Removed unused folders**: Deleted `scripts/` (PowerShell scripts), `attached_assets/` (screenshots)
+- **Removed unused files**: Deleted `setup_trackmybird.ps1`, `start.sh`, `design_guidelines.md`
+- **Uninstalled unused packages**: Removed `@octokit/rest` (GitHub API - not used)
+- **Streamlined codebase**: Kept only essential files for Next.js app operation
+
+### Earlier: US-Only N-Number Algorithmic Conversion
 - **Implemented mathematical N-number converter**: Ported proven algorithm from https://github.com/guillaumemichel/icao-nnumber_converter
   - Replaces unreliable OpenSky metadata lookup (was returning wrong hex for user's N260PC)
   - Bidirectional conversion: N-number ↔ ICAO hex (N1→A00001 through N99999→ADF7C7)
@@ -114,11 +120,9 @@ The application runs on port 5000 in the Replit environment:
 ## API Endpoints
 - `/api/track?hex=<ICAO_HEX>` - Get flight track with origin/destination and waypoints (uses OpenSky tracks + FlightAware flight + route endpoints → OpenSky flights → AviationStack)
 - `/api/resolve?tail=<TAIL_NUMBER>` - Resolve US tail number to ICAO hex (algorithmic conversion, US-only)
-- `/api/random` - Get a random active aircraft
-- `/api/opensky/active` - List active aircraft
-- `/api/opensky/by-tail` - Search by tail number
-- `/api/state` - Get aircraft state
-- `/api/test-flightaware?tail=<TAIL>` - Test FlightAware API integration (debug endpoint)
+- `/api/random` - Get a random active US aircraft (filters for hex starting with 'a')
+- `/api/opensky/active` - List active aircraft (used by Controls component)
+- `/api/opensky/by-tail` - Search by tail number (used by Controls component)
 
 ## N-Number to ICAO Conversion Algorithm
 The app uses a mathematical algorithm to convert US N-numbers to ICAO hex codes without requiring external database lookups:
