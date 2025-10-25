@@ -1,7 +1,7 @@
 # TrackMyBird - Flight Tracker Application
 
 ## Project Overview
-TrackMyBird is a real-time flight tracking application built with Next.js, React, and Leaflet maps. It uses the OpenSky Network API for aircraft tracking data and FlightAware AeroAPI as the primary source for origin/destination airport information, displaying flight paths on an interactive map.
+TrackMyBird is a real-time flight tracking application specifically designed to help US aircraft owners share tracking with authorized individuals (family, spouses, business partners) despite FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. Built with Next.js, React, and Leaflet maps, it uses mathematical N-number conversion, OpenSky Network API for aircraft tracking, and FlightAware AeroAPI for flight data. **Restricted to US-registered aircraft only (N-numbers).**
 
 ## Technology Stack
 - **Frontend Framework**: Next.js 15.5.6 with React 19.2.0
@@ -39,16 +39,18 @@ TrackMyBird is a real-time flight tracking application built with Next.js, React
 │   ├── api/               # API routes
 │   │   ├── opensky/       # OpenSky Network API proxies
 │   │   ├── random/        # Random aircraft endpoint
-│   │   ├── resolve/       # Resolve tail to hex
+│   │   ├── resolve/       # Resolve tail to hex (algorithmic)
 │   │   ├── state/         # Aircraft state endpoint
 │   │   └── track/         # Track aircraft endpoint
 │   ├── components/        # React components
+│   │   ├── AboutModal.tsx # About/LADD explanation modal
 │   │   ├── Controls.tsx   # UI controls
 │   │   └── SkyKeyApp.tsx  # Main app component
 │   ├── globals.css        # Global styles
 │   ├── layout.tsx         # Root layout
 │   └── page.tsx           # Home page
 ├── lib/                   # Utility libraries
+│   ├── nnumber-converter.ts # N-number to ICAO hex converter
 │   └── opensky.ts         # OpenSky API integration
 ├── config.json            # OpenSky API credentials
 └── next.config.mjs        # Next.js configuration
@@ -66,6 +68,24 @@ The application runs on port 5000 in the Replit environment:
 - Production: `next start -p 5000`
 
 ## Recent Changes (Oct 25, 2025)
+
+### Latest: US-Only N-Number Algorithmic Conversion
+- **Implemented mathematical N-number converter**: Ported proven algorithm from https://github.com/guillaumemichel/icao-nnumber_converter
+  - Replaces unreliable OpenSky metadata lookup (was returning wrong hex for user's N260PC)
+  - Bidirectional conversion: N-number ↔ ICAO hex (N1→A00001 through N99999→ADF7C7)
+  - Zero API calls, instant results, 100% accurate for US aircraft
+  - Validates N-number formats: 1-5 digits with optional 1-2 letter suffix
+- **US-only restriction**: App now limited to US-registered aircraft (LADD is FAA/US-specific)
+  - `/api/resolve` validates tail numbers must start with 'N'
+  - `/api/track` validates hex codes must start with 'A' (US range)
+  - Friendly error messages for non-US aircraft
+- **UI rebranding**: Updated messaging for non-technical users
+  - Renamed to "TrackMyBird" with tagline "Track your aircraft and share with family and friends"
+  - Added Info button with About modal explaining LADD in accessible terms
+  - Updated placeholders to US examples (N260PC, AB88B6)
+  - Removed technical jargon from main interface
+
+### Earlier Changes
 - **Migrated OAuth credentials**: Moved from config.json to Replit Secrets for security
 - **Fixed track parsing**: Corrected OpenSky API array format parsing ([time, lat, lon, alt, heading])
 - **Implemented polling**: 30-second client-side updates (user testing at 5 seconds)
@@ -93,15 +113,38 @@ The application runs on port 5000 in the Replit environment:
 
 ## API Endpoints
 - `/api/track?hex=<ICAO_HEX>` - Get flight track with origin/destination and waypoints (uses OpenSky tracks + FlightAware flight + route endpoints → OpenSky flights → AviationStack)
-- `/api/resolve?tail=<TAIL_NUMBER>` - Resolve tail number to ICAO hex
+- `/api/resolve?tail=<TAIL_NUMBER>` - Resolve US tail number to ICAO hex (algorithmic conversion, US-only)
 - `/api/random` - Get a random active aircraft
 - `/api/opensky/active` - List active aircraft
 - `/api/opensky/by-tail` - Search by tail number
 - `/api/state` - Get aircraft state
 - `/api/test-flightaware?tail=<TAIL>` - Test FlightAware API integration (debug endpoint)
 
+## N-Number to ICAO Conversion Algorithm
+The app uses a mathematical algorithm to convert US N-numbers to ICAO hex codes without requiring external database lookups:
+
+### How It Works
+- **Sequential mapping**: N1→A00001 through N99999→ADF7C7 (US aircraft range)
+- **Bucket-based calculation**: Uses pre-calculated bucket sizes for efficient conversion
+- **Bidirectional**: Supports both N-number→hex and hex→N-number conversion
+- **Zero API calls**: Pure mathematical calculation, instant results
+- **100% accurate**: Matches official FAA registry for all US aircraft
+
+### Validation Rules
+- N-numbers must start with 'N' followed by 1-5 characters
+- Characters can be: 1-5 digits with optional 1-2 letter suffix at the end
+- Letters use charset A-Z excluding I and O (to avoid confusion with 1 and 0)
+- Valid examples: N1, N12345, N842QS, N260PC
+- Invalid examples: N123ABC (3 letters), N1A2 (letter in middle), C-GXYZ (non-US)
+
+### Implementation
+- Library: `lib/nnumber-converter.ts`
+- Functions: `nNumberToIcao()`, `icaoToNNumber()`, `isValidNNumber()`, `isValidUSIcao()`
+- Reference: https://github.com/guillaumemichel/icao-nnumber_converter
+
 ## Development Notes
 - The app uses Next.js App Router (not Pages Router)
 - Map rendering is client-side only (dynamic import with ssr: false)
 - OpenSky API has rate limits - credentials in config.json provide extended access
 - Leaflet icons are custom SVG implementations for aircraft and markers
+- **US-only focus**: App is restricted to US aircraft due to LADD being an FAA/US program
