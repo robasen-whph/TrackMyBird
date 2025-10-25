@@ -65,16 +65,12 @@ const destinationPin = new L.DivIcon({
 const planeIcon = (heading?: number) =>
   new L.DivIcon({
     className: "",
-    html: `<div style="transform: rotate(${heading ?? 0}deg); transform-origin: center;">
-      <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' width='40' height='40'>
-        <g transform='translate(24, 24)'>
-          <path fill='#3b82f6' stroke='white' stroke-width='1.5' 
-                d='M0,-16 L3,-14 L10,-4 L10,0 L4,0 L4,6 L7,10 L3,10 L0,8 L-3,10 L-7,10 L-4,6 L-4,0 L-10,0 L-10,-4 L-3,-14 Z'/>
-          <ellipse cx='0' cy='-8' rx='2.5' ry='4' fill='#1e40af' opacity='0.6'/>
-        </g>
-      </svg>
-    </div>`,
-    iconAnchor: [20, 20],
+    html: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='-24 -24 48 48' width='48' height='48' style="transform: rotate(${heading ?? 0}deg);">
+      <path fill='#3b82f6' stroke='white' stroke-width='1.5' 
+            d='M0,-16 L3,-14 L10,-4 L10,0 L4,0 L4,6 L7,10 L3,10 L0,8 L-3,10 L-7,10 L-4,6 L-4,0 L-10,0 L-10,-4 L-3,-14 Z'/>
+      <ellipse cx='0' cy='-8' rx='2.5' ry='4' fill='#1e40af' opacity='0.6'/>
+    </svg>`,
+    iconAnchor: [24, 24],
   });
 
 // ---------- Map helpers ----------
