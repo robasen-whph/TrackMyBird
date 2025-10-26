@@ -3,23 +3,32 @@ import { getFlightStatus } from "@/lib/statusAdapter";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const hex = (searchParams.get("hex") || "").toLowerCase();
+  const hex = searchParams.get("hex")?.toLowerCase() || "";
+  const tail = searchParams.get("tail")?.toUpperCase() || "";
   
-  if (!/^[0-9a-f]{6}$/.test(hex)) {
+  // Must provide either hex or tail
+  if (!hex && !tail) {
+    return NextResponse.json({ 
+      message: "Either hex or tail parameter is required." 
+    }, { status: 400 });
+  }
+  
+  // If hex provided, validate format
+  if (hex && !/^[0-9a-f]{6}$/.test(hex)) {
     return NextResponse.json({ 
       message: "Invalid hex code format. Must be 6 hexadecimal characters." 
     }, { status: 400 });
   }
   
   // Check if it's a US aircraft (hex must start with 'A')
-  if (!hex.startsWith('a')) {
+  if (hex && !hex.startsWith('a')) {
     return NextResponse.json({
       message: "This app currently supports US-registered aircraft only. US aircraft hex codes start with 'A'."
     }, { status: 400 });
   }
 
   try {
-    const status = await getFlightStatus({ hex });
+    const status = await getFlightStatus({ hex: hex || undefined, tail: tail || undefined });
     
     return NextResponse.json(status);
   } catch (error: any) {

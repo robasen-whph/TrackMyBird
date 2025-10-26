@@ -368,12 +368,17 @@ export async function getFlightStatus(params: FlightStatusParams): Promise<Fligh
   if (identifier) {
     // Try FlightAware (primary provider for everything)
     try {
+      console.log(`[FlightAware] Fetching data for: ${identifier}`);
       providerData = await fetchFromFlightAware(identifier);
       if (providerData) {
+        console.log(`[FlightAware] Success! Got ${providerData.points?.length || 0} points`);
         // Merge all data from FlightAware including track points
         Object.assign(result, providerData);
+      } else {
+        console.log(`[FlightAware] No data returned for ${identifier}`);
       }
     } catch (error) {
+      console.log(`[FlightAware] Error:`, error);
       if (error instanceof ProviderError) {
         if (error.statusCode === 429) {
           rateLimitedProvider = error.provider;
