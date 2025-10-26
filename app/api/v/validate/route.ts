@@ -46,7 +46,26 @@ export async function POST(request: Request) {
       );
     }
 
-    // Update last_view_at
+    // Check if dormant (>6 months since last view or creation) and auto-revoke
+    const sixMonthsAgo = new Date(now.getTime() - 6 * 30 * 24 * 60 * 60 * 1000);
+    const isDormant = 
+      (token.lastViewAt && token.lastViewAt < sixMonthsAgo) ||
+      (!token.lastViewAt && token.createdAt < sixMonthsAgo);
+
+    if (isDormant) {
+      // Auto-revoke dormant token
+      await db
+        .update(guestTokens)
+        .set({ revoked: true })
+        .where(eq(guestTokens.id, token.id));
+
+      return NextResponse.json(
+        { error: 'This access has been automatically revoked due to inactivity (>6 months)' },
+        { status: 403 }
+      );
+    }
+
+    // Update last_view_at (token is active and valid)
     await db
       .update(guestTokens)
       .set({ lastViewAt: now })
@@ -63,20 +82,8 @@ export async function POST(request: Request) {
         .where(inArray(aircraft.id, aircraftIds));
     }
 
-    // Compute status
-    const sixMonthsAgo = new Date(now.getTime() - 6 * 30 * 24 * 60 * 60 * 1000);
-    let status = 'Active';
-    
-    if (token.revoked) {
-      status = 'Revoked';
-    } else if (token.expiresAt && token.expiresAt < now) {
-      status = 'Expired';
-    } else if (
-      (token.lastViewAt && token.lastViewAt < sixMonthsAgo) ||
-      (!token.lastViewAt && token.createdAt < sixMonthsAgo)
-    ) {
-      status = 'Dormant';
-    }
+    // Status is Active (we've already checked and auto-revoked dormant tokens above)
+    const status = 'Active';
 
     // Duration label
     const durationLabel = token.expiresAt ? '24h' : 'Permanent';

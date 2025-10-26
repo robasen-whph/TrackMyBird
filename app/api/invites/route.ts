@@ -99,11 +99,38 @@ export async function GET(request: Request) {
       .where(eq(guestTokens.issuedByUserId, session.user.id))
       .orderBy(guestTokens.createdAt);
 
-    // Compute status for each token (no DB mutation)
+    // Auto-revoke dormant tokens (>6 months inactivity)
     const now = new Date();
     const sixMonthsAgo = new Date(now.getTime() - 6 * 30 * 24 * 60 * 60 * 1000);
 
-    const tokensWithStatus = tokens.map((token) => {
+    const dormantTokenIds = tokens
+      .filter(token => {
+        if (token.revoked) return false;
+        if (token.expiresAt && token.expiresAt < now) return false;
+        
+        return (
+          (token.lastViewAt && token.lastViewAt < sixMonthsAgo) ||
+          (!token.lastViewAt && token.createdAt < sixMonthsAgo)
+        );
+      })
+      .map(token => token.id);
+
+    if (dormantTokenIds.length > 0) {
+      await db
+        .update(guestTokens)
+        .set({ revoked: true })
+        .where(inArray(guestTokens.id, dormantTokenIds));
+    }
+
+    // Reload tokens after auto-revoke
+    const updatedTokens = await db
+      .select()
+      .from(guestTokens)
+      .where(eq(guestTokens.issuedByUserId, session.user.id))
+      .orderBy(guestTokens.createdAt);
+
+    // Compute status for each token
+    const tokensWithStatus = updatedTokens.map((token) => {
       let status = 'Active';
       
       // Check if revoked
