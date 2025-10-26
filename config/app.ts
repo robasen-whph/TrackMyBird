@@ -3,6 +3,11 @@
  * These can be safely committed to version control
  */
 
+// Email configuration constants
+export const EMAIL_FROM = "TrackMyBird <trackmybird@gmail.com>";
+export const SMTP_HOST = "smtp.gmail.com";
+export const SMTP_PORT = 587;
+
 export const appConfig = {
   // Application version
   version: '0.41.0',
@@ -12,9 +17,9 @@ export const appConfig = {
   
   // Email configuration (non-sensitive parts)
   email: {
-    from: process.env.EMAIL_FROM || 'noreply@trackmybird.net',
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587', 10),
+    from: process.env.EMAIL_FROM || EMAIL_FROM,
+    host: process.env.SMTP_HOST || SMTP_HOST,
+    port: parseInt(process.env.SMTP_PORT || String(SMTP_PORT), 10),
   },
   
   // OpenSky API (client ID is not sensitive)

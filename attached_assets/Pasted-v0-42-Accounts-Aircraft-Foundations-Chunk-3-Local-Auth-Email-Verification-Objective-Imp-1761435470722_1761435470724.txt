@@ -1,0 +1,153 @@
+v0.42 — Accounts + Aircraft (Foundations)
+
+Chunk 3 — Local Auth + Email Verification
+
+Objective:
+Implement secure email/password signup and verification for owners; prepare roles for future guest logins.
+
+Inputs
+Secrets: DATABASE_URL, SESSION_SECRET, SMTP_USER, SMTP_PASS, OPENSKY_CLIENT_SECRET, FLIGHTAWARE_API_KEY, AVIATIONSTACK_API_KEY
+Config (from config/app.ts): APP_URL, EMAIL_FROM, SMTP_HOST, SMTP_PORT, OPENSKY_CLIENT_ID
+
+Build
+
+Tables
+
+users(id, email UNIQUE, password_hash, role ENUM('owner','guest') DEFAULT 'owner', email_verified_at, created_at)
+
+email_verifications(id, user_id, token_hash, expires_at, used, created_at)
+
+sessions(id, user_id, expires_at, created_at)
+
+Endpoints
+
+POST /api/auth/signup {email,password}
+
+Creates unverified owner user.
+
+Sends email with verification link ${APP_URL}/api/auth/verify?token=….
+
+GET /api/auth/verify?token=…
+
+Marks email_verified_at, logs in user.
+
+Redirect /dashboard.
+
+POST /api/auth/login {email,password,remember}
+
+Issues cookie (httpOnly, Secure, SameSite=Lax).
+
+TTL: 24h or 30d if remember=true.
+
+POST /api/auth/logout
+
+Clears session cookie.
+
+POST /api/auth/resend (optional)
+
+Resends verification email if not verified.
+
+Password Policy
+
+Minimum 8 characters, no special characters required.
+
+Session Behavior
+
+“Remember me” available only for role='owner'.
+
+Guests from invites cannot create persistent sessions.
+
+Verification Flow
+
+Signup → verification email → /verify-pending.
+
+Verified → /dashboard.
+
+Unverified access to /dashboard → 403 with message.
+
+Error Handling
+
+Duplicate email → 409.
+
+Invalid credentials → 401.
+
+Expired or used token → 400 {error:"token_expired"}.
+
+Permissions
+
+Only verified owner accounts may access /dashboard and manage aircraft.
+
+guest role reserved for later registered viewers.
+
+Short-term invite viewers do not need login.
+
+Accept
+
+Verified owner can log in and reach /dashboard.
+
+Unverified user cannot access restricted routes.
+
+Verification token one-time use, 24h TTL.
+
+All required secrets/config values referenced correctly.
+
+Chunk 4 — Aircraft Core
+
+Objective:
+Create persistent aircraft records linked to verified owners.
+
+Build
+
+Table
+
+aircraft(id, owner_user_id, tail, icao_hex, authorized_at, created_at)
+
+Enforce UNIQUE(owner_user_id, tail).
+
+Endpoints
+
+POST /api/aircraft {tail, icao_hex}
+
+Validate tail: US N-number format.
+
+Validate icao_hex: 6 hex characters.
+
+Set authorized_at=now().
+
+Only verified owners allowed.
+
+GET /api/aircraft
+
+Return aircraft for logged-in owner, newest first.
+
+DELETE /api/aircraft/:id
+
+Delete if owned by requester.
+
+Purpose
+
+Provides the backend for /dashboard display and invite creation.
+
+Error Handling
+
+Invalid tail or hex → 400 {error:"invalid_input"}.
+
+Duplicate tail for same owner → 409 {error:"duplicate"}.
+
+Unauthorized access → 403.
+
+Validation
+
+Ownership checked via session user ID.
+
+Global uniqueness of icao_hex optional for now.
+
+Acceptance
+
+Owner can add, list, delete aircraft.
+
+Non-owner requests rejected.
+
+Data persists in aircraft table.
+
+Output includes tail, icao_hex, authorized_at.
