@@ -1,7 +1,7 @@
 # TrackMyBird - Flight Tracker Application
 
 ## Overview
-TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project aims to provide a reliable and accessible platform for tracking flights with rich interactive map visualizations and detailed flight information.
+TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.43.
 
 ## User Preferences
 I prefer detailed explanations.
@@ -15,6 +15,19 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
 
 **Key Features:**
 -   **User Authentication & Aircraft Management**: Secure signup/login, email verification, and CRUD operations for aircraft (tail number + hex code).
+-   **Guest Access Sharing (v0.43)**: 
+    -   Create shareable tracking links with 256-bit tokens (SHA-256 hashed at rest)
+    -   Two duration types: 24-hour temporary or permanent (with 6-month inactivity auto-revoke)
+    -   Guest tokens support multiple aircraft, optional nicknames, and regenerate-on-demand
+    -   Automatic revocation when aircraft deleted or after 6 months of inactivity
+    -   Public guest viewer page showing aircraft list with direct tracking links
+-   **Dashboard UX (v0.43)**:
+    -   Tabbed interface: "My Aircraft" and "Guest Access" tabs
+    -   Clickable aircraft table rows (tail/hex → public tracking page)
+    -   Per-aircraft actions: Track, Issue Access, Delete
+    -   Guest token management: view status, regenerate links, revoke access
+    -   Copy-to-clipboard for sharing URLs
+-   **Public Tracking**: `/track/[id]` page accepts tail number or hex code, auto-detects type
 -   **Real-time Tracking**: Displays aircraft position, flight paths (completed and remaining), and IFR waypoints on an **interactive Leaflet map**.
 -   **Map Visualizations**:
     -   Dual-color track segments: Purple for completed path, gray dashed for remaining path.
@@ -23,20 +36,29 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
 -   **Flight Data**: Integration with external APIs for origin/destination data, IFR flight plans, and historical flight data.
 -   **N-number Conversion**: Uses a mathematical algorithm for instant and accurate bidirectional conversion between US N-numbers and ICAO hex codes, without external API calls. This enforces a strict **US-only restriction** for aircraft.
 -   **Performance & Reliability**: Features client-side polling for live updates, a provider cascade (`FlightAware` → `OpenSky Network` → `AviationStack`) with in-memory caching for flight status, and robust rate limiting.
--   **Security**: Sensitive configurations are managed via Replit Secrets. All API endpoints validate authentication and ownership.
+-   **Security**: 
+    -   All tokens (session, verification, guest) use 256-bit entropy, SHA-256 hashed at rest
+    -   Guest tokens auto-revoke on aircraft deletion and after 6 months of inactivity
+    -   Proxy-aware URL generation for deployment environments
+    -   Authentication and ownership validation on all protected endpoints
 
 **Technical Implementations:**
 -   **Configuration**: Separated into sensitive secrets (managed by Replit Secrets) and public configuration with sensible defaults.
 -   **Rate Limiting**: Implemented with a sliding window algorithm for API endpoints like `/api/random` and `/api/resolve`.
 -   **Email System**: Supports SMTP with a fallback to file transport in development.
 -   **Map Rendering**: Client-side only using dynamic imports to optimize server-side rendering.
+-   **Guest Token System (v0.43)**:
+    -   JSONB storage for multi-aircraft token associations with PostgreSQL containment queries
+    -   Auto-revoke enforcement at validation and listing endpoints (6-month inactivity threshold)
+    -   Token regeneration preserves settings while invalidating old token
+    -   Status computation: Active, Revoked, Expired, Dormant (computed, not stored)
 
 ## External Dependencies
 -   **OpenSky Network REST API**: For real-time aircraft tracking (OAuth authenticated).
 -   **FlightAware AeroAPI**: Primary source for origin/destination data and IFR flight plans.
 -   **AviationStack API**: Fallback for origin/destination data.
 -   **airport-data.com API**: Provides airport coordinates and details.
--   **PostgreSQL**: Relational database for storing user, session, and aircraft data.
+-   **PostgreSQL**: Relational database for storing user, session, aircraft, and guest token data (5 tables).
 -   **Drizzle ORM**: Used for database interactions.
 -   **Next.js**: Frontend framework.
 -   **React**: UI library.
