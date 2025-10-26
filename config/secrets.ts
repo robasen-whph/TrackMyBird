@@ -7,6 +7,9 @@ const REQUIRED_SECRETS = [
   // Authentication & Encryption
   'SESSION_SECRET',           // SENSITIVE: Session encryption key
   
+  // Database
+  'DATABASE_URL',             // SENSITIVE: PostgreSQL connection string (auto-provided by Replit)
+  
   // Email Credentials
   'SMTP_USER',               // SENSITIVE: SMTP username
   'SMTP_PASS',               // SENSITIVE: SMTP password
