@@ -228,7 +228,7 @@ function formatDuration(seconds: number | null | undefined): string {
   return `${hrs}h ${mins}m`;
 }
 
-const VERSION = "0.41";
+const VERSION = "0.42";
 
 // ---------- UI ----------
 export default function SkyKeyApp() {
