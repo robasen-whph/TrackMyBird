@@ -11,10 +11,9 @@ const REQUIRED_SECRETS = [
   'SMTP_USER',               // SENSITIVE: SMTP username
   'SMTP_PASS',               // SENSITIVE: SMTP password
   
-  // API Keys & Secrets
-  'OPENSKY_CLIENT_SECRET',   // SENSITIVE: OAuth secret
+  // API Keys
   'FLIGHTAWARE_API_KEY',     // SENSITIVE: API key
-  'AVIATIONSTACK_API_KEY',   // SENSITIVE: API key
+  'AVIATIONSTACK_API_KEY',   // SENSITIVE: API key (fallback provider)
 ] as const;
 
 // REMOVED from required secrets (now in config/app.ts with defaults):
@@ -22,7 +21,6 @@ const REQUIRED_SECRETS = [
 // - EMAIL_FROM (public email address)
 // - SMTP_HOST (public hostname)
 // - SMTP_PORT (public port number)
-// - OPENSKY_CLIENT_ID (public client ID, like a username)
 
 export function validateSecrets(): void {
   const missing: string[] = [];

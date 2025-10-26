@@ -35,7 +35,7 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
     -   Airport markers for origin and destination.
 -   **Flight Data**: Integration with external APIs for origin/destination data, IFR flight plans, and historical flight data.
 -   **N-number Conversion**: Uses a mathematical algorithm for instant and accurate bidirectional conversion between US N-numbers and ICAO hex codes, without external API calls. This enforces a strict **US-only restriction** for aircraft.
--   **Performance & Reliability**: Features client-side polling for live updates, a provider cascade (`FlightAware` → `OpenSky Network` → `AviationStack`) with in-memory caching for flight status, and robust rate limiting.
+-   **Performance & Reliability**: Features client-side polling for live updates, a provider cascade (`FlightAware` primary → `AviationStack` fallback) with in-memory caching for flight status, and robust rate limiting.
 -   **Security**: 
     -   All tokens (session, verification, guest) use 256-bit entropy, SHA-256 hashed at rest
     -   Guest tokens auto-revoke on aircraft deletion and after 6 months of inactivity
@@ -54,9 +54,8 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
     -   Status computation: Active, Revoked, Expired, Dormant (computed, not stored)
 
 ## External Dependencies
--   **OpenSky Network REST API**: For real-time aircraft tracking (OAuth authenticated).
--   **FlightAware AeroAPI**: Primary source for origin/destination data and IFR flight plans.
--   **AviationStack API**: Fallback for origin/destination data.
+-   **FlightAware AeroAPI**: Primary source for all flight data including real-time tracking, origin/destination, and IFR flight plans.
+-   **AviationStack API**: Fallback provider for origin/destination metadata.
 -   **airport-data.com API**: Provides airport coordinates and details.
 -   **PostgreSQL**: Relational database for storing user, session, aircraft, and guest token data (5 tables).
 -   **Drizzle ORM**: Used for database interactions.

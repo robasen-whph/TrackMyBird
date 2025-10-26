@@ -35,11 +35,10 @@ export async function GET(req: Request) {
     const errorMsg = error.message || String(error);
     console.error('[TRACK ERROR]', errorMsg, error);
     
-    // Handle rate limiting errors (match old error format)
+    // Handle rate limiting errors
     if (errorMsg.startsWith('rate_limited:')) {
       const provider = errorMsg.split(':')[1];
-      const providerName = provider === 'opensky' ? 'OpenSky Network' : 
-                           provider === 'flightaware' ? 'FlightAware' :
+      const providerName = provider === 'flightaware' ? 'FlightAware' :
                            provider === 'aviationstack' ? 'AviationStack' : provider;
       return NextResponse.json(
         { 
