@@ -228,10 +228,14 @@ function formatDuration(seconds: number | null | undefined): string {
   return `${hrs}h ${mins}m`;
 }
 
-const VERSION = "0.42";
+const VERSION = "0.43";
 
 // ---------- UI ----------
-export default function SkyKeyApp() {
+interface SkyKeyAppProps {
+  initialId?: string;
+}
+
+export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
   const [hex, setHex] = useState("");
   const [tail, setTail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -348,6 +352,25 @@ export default function SkyKeyApp() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // Auto-fetch on mount if initialId is provided
+  useEffect(() => {
+    if (!initialId) return;
+    
+    // Detect if it's a hex (6 chars alphanumeric) or tail (starts with N)
+    const isHex = /^[A-Fa-f0-9]{6}$/.test(initialId);
+    const isTail = /^N/.test(initialId.toUpperCase());
+    
+    if (isHex) {
+      setHex(initialId.toUpperCase());
+      handleFetchByHex(initialId.toUpperCase());
+    } else if (isTail) {
+      setTail(initialId.toUpperCase());
+      handleFetchByTail(initialId.toUpperCase());
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFetchByTail = useCallback(async (t: string) => {
@@ -723,3 +746,5 @@ export default function SkyKeyApp() {
     </div>
   );
 }
+
+export default SkyKeyApp;
