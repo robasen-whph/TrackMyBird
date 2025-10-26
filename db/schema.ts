@@ -1,4 +1,4 @@
-import { pgTable, serial, text, varchar, timestamp, boolean, integer, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, serial, text, varchar, timestamp, boolean, integer, pgEnum, jsonb } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Enum for user roles
@@ -43,6 +43,19 @@ export const aircraft = pgTable('aircraft', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Guest tokens table
+export const guestTokens = pgTable('guest_tokens', {
+  id: serial('id').primaryKey(),
+  tokenHash: text('token_hash').notNull().unique(),
+  issuedByUserId: integer('issued_by_user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  aircraftIds: jsonb('aircraft_ids').notNull(),
+  nickname: text('nickname'),
+  expiresAt: timestamp('expires_at'),
+  revoked: boolean('revoked').default(false).notNull(),
+  lastViewAt: timestamp('last_view_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   sessions: many(sessions),
@@ -71,6 +84,13 @@ export const aircraftRelations = relations(aircraft, ({ one }) => ({
   }),
 }));
 
+export const guestTokensRelations = relations(guestTokens, ({ one }) => ({
+  issuedBy: one(users, {
+    fields: [guestTokens.issuedByUserId],
+    references: [users.id],
+  }),
+}));
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
@@ -83,3 +103,6 @@ export type InsertEmailVerification = typeof emailVerifications.$inferInsert;
 
 export type Aircraft = typeof aircraft.$inferSelect;
 export type InsertAircraft = typeof aircraft.$inferInsert;
+
+export type GuestToken = typeof guestTokens.$inferSelect;
+export type InsertGuestToken = typeof guestTokens.$inferInsert;
