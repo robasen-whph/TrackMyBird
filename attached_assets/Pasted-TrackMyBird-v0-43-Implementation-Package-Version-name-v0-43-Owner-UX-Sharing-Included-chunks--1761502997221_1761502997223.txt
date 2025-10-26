@@ -1,0 +1,257 @@
+TrackMyBird – v0.43 Implementation Package
+Version name: v0.43 — Owner UX + Sharing
+Included chunks: 5 (Owner Dashboard UI) and 6 (Guest Tokens – Create/Expire/Permanent)
+
+
+---
+
+Intro for Replit Plan
+
+Context:
+The authentication and aircraft management foundations (v0.42) are complete and verified.
+v0.43 introduces the owner dashboard user experience and the initial sharing system — allowing owners to issue guest tracking links (temporary or permanent).
+No guest viewer or revoke UI yet; those will follow in v0.44.
+The goal is to make aircraft records actionable and shareable.
+
+
+---
+
+Objectives
+
+1. Enable owners to interact meaningfully with their aircraft list: click any aircraft to open the live tracking map.
+
+
+2. Allow owners to issue guest-access links for one or multiple aircraft, with configurable durations (24 hours or permanent).
+
+
+3. Manage basic metadata (nickname, expiry, last viewed date) in preparation for the future guest viewer.
+
+
+4. Maintain secure ownership isolation — owners see only their own aircraft and tokens.
+
+
+
+
+---
+
+Inputs
+
+Dependencies:
+Already available from v0.42 (auth, sessions, aircraft, database, email).
+
+Database:
+Add a new table guest_tokens.
+Secrets: unchanged from v0.42.
+Config: unchanged from v0.42.
+
+
+---
+
+Build Details
+
+1. Dashboard Enhancements (Chunk 5)
+
+Goal: Make /dashboard fully interactive.
+
+Build
+
+Each row in the aircraft table becomes clickable.
+
+Clicking the Tail or Track button navigates to /track/[tail] or /track/[hex] using the existing public tracking page.
+
+Add a right-side Actions column:
+
+“Track” → opens flight map view (existing map).
+
+“Issue Access” → opens modal for guest link creation.
+
+“Delete” → existing behavior.
+
+
+Show confirmation toast/snackbar after adding or deleting an aircraft.
+
+Add hover and cursor states for all buttons/rows.
+
+Implement tooltip for “Permanent Access” option:
+
+> “Permanent links never expire but are paused after 6 months of inactivity.”
+
+
+
+
+Accept
+
+Dashboard renders dynamically after CRUD operations without reload.
+
+Clicking tail or “Track” opens map in same tab.
+
+Modal for issuing guest link opens cleanly (see next section).
+
+Tooltips and hover states confirmed functional.
+
+
+
+---
+
+2. Guest Token System (Chunk 6)
+
+Goal: Let owners issue shareable tracking links.
+
+Database Table: guest_tokens
+
+id                SERIAL PRIMARY KEY
+token_hash        TEXT UNIQUE
+issued_by_user_id INTEGER REFERENCES users(id)
+aircraft_ids      JSONB
+nickname          TEXT NULL
+expires_at        TIMESTAMP NULL
+revoked           BOOLEAN DEFAULT false
+last_view_at      TIMESTAMP NULL
+created_at        TIMESTAMP DEFAULT now()
+
+Behavior Rules
+
+Default duration: 24 hours.
+
+If “Permanent” chosen → expires_at = NULL.
+
+Permanent tokens auto-suspend after 6 months of inactivity (last_view_at older than 6 months).
+
+Tokens auto-revoke when any linked aircraft is deleted.
+
+Tokens are bearer credentials: only reveal them once in the creation response.
+
+All permanent and active tokens visible in /dashboard under new “Guest Access” tab.
+
+
+API Endpoints
+
+POST /api/invites
+
+Body: { aircraft_ids: string[], nickname?: string, duration?: "24h" | "permanent" }
+
+Creates new record and returns { invite_url }
+
+Invite URL format: ${APP_URL}/v/${token}
+
+
+GET /api/invites
+
+Returns all active tokens for logged-in owner.
+
+Include fields: nickname, aircraft_ids, duration label (“24h” or “Permanent”), status (“Active” | “Dormant”), last_view_at, created_at.
+
+
+DELETE /api/invites/:id
+
+Marks revoked=true. (Full revoke UI deferred to v0.44.)
+
+
+GET /api/invites/:id
+
+Developer test endpoint to verify a token’s metadata. Returns JSON; no guest content.
+
+
+
+Frontend Integration
+
+Add “Guest Access” tab within /dashboard.
+
+Table columns: Nickname, Aircraft Count, Duration, Status, Last Access, Copy Link.
+
+“Copy Link” button copies invite URL to clipboard.
+
+Tooltip on Duration column explains inactivity rule.
+
+Links visually show Dormant status (gray text).
+
+
+Automatic Handling
+
+Nightly cron-like check (can run in API endpoint triggered manually for now):
+marks tokens with last_view_at < NOW() - INTERVAL '6 months' as Dormant.
+
+
+Accept
+
+Owner can create both 24h and Permanent tokens.
+
+Returned invite URL resolves correctly (/v/[token], placeholder OK until v0.44).
+
+Tokens show in dashboard immediately.
+
+Tokens tied to deleted aircraft auto-revoke.
+
+Dormant marking logic works via test simulation (manually backdate last_view_at).
+
+
+
+---
+
+Testing Guidance
+
+Create Flow
+
+1. Log in as verified owner.
+
+
+2. Add two aircraft.
+
+
+3. Issue access: one 24h, one Permanent.
+
+
+4. Confirm links appear in “Guest Access” table.
+
+
+
+Token Validity
+
+Check DB for generated guest_tokens record with correct expires_at.
+
+Call GET /api/invites → both tokens visible, correct durations.
+
+
+Deletion Flow
+
+Delete one aircraft.
+
+Verify any tokens referencing that aircraft now have revoked=true.
+
+
+Dormancy Simulation
+
+In DB, set last_view_at to >6 months ago.
+
+Trigger /api/invites → status shows “Dormant”.
+
+
+Dashboard
+
+Click each tail or “Track” → correct map opens.
+
+UI responsive with no reloads.
+
+
+
+---
+
+Deliverables Summary
+
+Interactive /dashboard with Track + Issue Access buttons.
+
+New modal for guest link creation (24h or Permanent).
+
+New “Guest Access” tab with token management table.
+
+Backend API /api/invites for token lifecycle.
+
+Auto-suspend (6-month inactivity) and auto-revoke (aircraft deletion).
+
+All tests demonstrating correct DB records and UI behavior.
+
+
+
+---
+
+End of v0.43 Implementation Package
