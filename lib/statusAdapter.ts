@@ -1,11 +1,7 @@
 /**
  * Flight status adapter with provider cascade and caching
- * Providers: FlightAware → OpenSky → AviationStack → airport-data.com
+ * Providers: FlightAware (primary) → AviationStack (fallback) → airport-data.com
  */
-
-import { readFileSync, writeFileSync } from "fs";
-import { join } from "path";
-import { appConfig } from "@/config/app";
 
 // Types
 export interface FlightStatusParams {
@@ -84,63 +80,6 @@ function setInCache(key: string, data: FlightStatus): void {
   });
 }
 
-// OpenSky token management
-function getConfig() {
-  const configPath = join(process.cwd(), "config.json");
-  const configFile = readFileSync(configPath, "utf-8");
-  return JSON.parse(configFile);
-}
-
-function updateConfig(updates: Partial<{OS_ACCESS_TOKEN: string; OS_TOKEN_EXPIRATION: number}>) {
-  const configPath = join(process.cwd(), "config.json");
-  const config = getConfig();
-  const newConfig = { ...config, ...updates };
-  writeFileSync(configPath, JSON.stringify(newConfig, null, 2), "utf-8");
-}
-
-async function refreshOpenSkyToken() {
-  const config = getConfig();
-  const body = new URLSearchParams({
-    grant_type: "client_credentials",
-    client_id: appConfig.opensky.clientId,
-    client_secret: process.env.OPENSKY_CLIENT_SECRET || "",
-  });
-  
-  const r = await fetch(config.OS_TOKEN_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-    cache: "no-store",
-  });
-  
-  if (!r.ok) {
-    throw new Error(`OpenSky token refresh failed: ${r.status}`);
-  }
-  
-  const data = await r.json();
-  const newToken = data.access_token;
-  const expiresIn = data.expires_in || 1800;
-  const expiration = Date.now() + (expiresIn * 1000);
-  
-  updateConfig({
-    OS_ACCESS_TOKEN: newToken,
-    OS_TOKEN_EXPIRATION: expiration,
-  });
-  
-  return newToken;
-}
-
-async function getValidOpenSkyToken(): Promise<string> {
-  const config = getConfig();
-  const now = Date.now();
-  const expiration = config.OS_TOKEN_EXPIRATION || 0;
-  
-  if (now >= expiration - 60000) {
-    return await refreshOpenSkyToken();
-  }
-  
-  return config.OS_ACCESS_TOKEN;
-}
 
 // Provider error types
 class ProviderError extends Error {
@@ -162,7 +101,7 @@ function cleanCityName(city: string | undefined): string | undefined {
   return withoutTimezone.replace(/_/g, ' ');
 }
 
-// FlightAware provider
+// FlightAware provider - fetches metadata, track points, and waypoints
 async function fetchFromFlightAware(tail: string): Promise<Partial<FlightStatus> | null> {
   const apiKey = process.env.FLIGHTAWARE_API_KEY;
   if (!apiKey) return null;
@@ -232,8 +171,39 @@ async function fetchFromFlightAware(tail: string): Promise<Partial<FlightStatus>
       result.lastSeen = new Date(flight.scheduled_in).getTime() / 1000;
     }
     
-    // Fetch waypoints if available
+    // Fetch track data and waypoints if available
     if (flight.fa_flight_id && apiKey) {
+      // Fetch track points
+      try {
+        const trackUrl = `https://aeroapi.flightaware.com/aeroapi/flights/${encodeURIComponent(flight.fa_flight_id)}/track`;
+        const trackResponse = await fetch(trackUrl, {
+          headers: { "x-apikey": apiKey },
+          cache: "no-store",
+        });
+        
+        if (trackResponse.ok) {
+          const trackData: any = await trackResponse.json();
+          if (trackData.positions && Array.isArray(trackData.positions)) {
+            result.points = trackData.positions
+              .filter((pos: any) => 
+                Number.isFinite(pos.latitude) && 
+                Number.isFinite(pos.longitude)
+              )
+              .map((pos: any) => ({
+                lat: pos.latitude,
+                lon: pos.longitude,
+                ts: pos.timestamp ? Math.floor(new Date(pos.timestamp).getTime() / 1000) : undefined,
+                alt_ft: typeof pos.altitude === "number" ? Math.round(pos.altitude) : undefined,
+                hdg: typeof pos.heading === "number" ? Math.round(pos.heading) : undefined,
+              }));
+          }
+        }
+      } catch (e) {
+        // Track data is optional for now, don't fail the whole request
+        console.warn('FlightAware track fetch failed:', e);
+      }
+      
+      // Fetch waypoints
       try {
         const routeUrl = `https://aeroapi.flightaware.com/aeroapi/flights/${encodeURIComponent(flight.fa_flight_id)}/route`;
         const routeResponse = await fetch(routeUrl, {
@@ -275,65 +245,6 @@ async function fetchFromFlightAware(tail: string): Promise<Partial<FlightStatus>
   }
 }
 
-// OpenSky provider
-async function fetchFromOpenSky(hex: string, token: string): Promise<Partial<FlightStatus> | null> {
-  try {
-    // Try /flights endpoint for flight metadata
-    const now = Math.floor(Date.now() / 1000);
-    const begin = now - 7 * 24 * 3600;
-    const flightUrl = `https://opensky-network.org/api/flights/aircraft?icao24=${hex}&begin=${begin}&end=${now}`;
-    
-    const response = await fetch(flightUrl, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      cache: "no-store",
-    });
-    
-    if (response.status === 401 || response.status === 403) {
-      throw new ProviderError("Unauthorized", "opensky", response.status, false);
-    }
-    
-    if (response.status === 429) {
-      throw new ProviderError("Rate limited", "opensky", 429, true);
-    }
-    
-    if (response.status >= 500) {
-      throw new ProviderError("Server error", "opensky", response.status, true);
-    }
-    
-    if (!response.ok) {
-      return null;
-    }
-    
-    const flights: any = await response.json();
-    
-    if (!flights || flights.length === 0) {
-      return null;
-    }
-    
-    const latestFlight = flights[flights.length - 1];
-    const result: Partial<FlightStatus> = {
-      originAirport: latestFlight.estDepartureAirport || null,
-      destinationAirport: latestFlight.estArrivalAirport || null,
-      firstSeen: latestFlight.firstSeen || null,
-      lastSeen: latestFlight.lastSeen || null,
-    };
-    
-    return result;
-  } catch (error) {
-    if (error instanceof ProviderError) {
-      throw error;
-    }
-    throw new ProviderError(
-      error instanceof Error ? error.message : String(error),
-      "opensky",
-      undefined,
-      true
-    );
-  }
-}
 
 // AviationStack provider
 async function fetchFromAviationStack(tail: string): Promise<Partial<FlightStatus> | null> {
@@ -409,6 +320,7 @@ async function fetchAirportInfo(icao: string): Promise<AirportInfo | null> {
 
 /**
  * Get flight status with provider cascade and caching
+ * Uses FlightAware as primary data source
  * Validates US-only aircraft (hex must start with 'a')
  */
 export async function getFlightStatus(params: FlightStatusParams): Promise<FlightStatus> {
@@ -427,69 +339,16 @@ export async function getFlightStatus(params: FlightStatusParams): Promise<Fligh
     return cached;
   }
   
-  // For now, we need hex to fetch track data from OpenSky
-  // If only tail provided, we'd need to convert it first
-  if (!hex) {
-    throw new Error("Hex code required for track data");
-  }
-  
   // Validate US-only (hex must start with 'a')
-  if (!hex.startsWith('a')) {
+  if (hex && !hex.startsWith('a')) {
     throw new Error("US-registered aircraft only (hex must start with 'a')");
   }
   
-  // Fetch track data from OpenSky (this is always needed for points)
-  // Only get token when actually making the request
-  const trackUrl = `https://opensky-network.org/api/tracks/all?icao24=${hex}&time=0`;
-  let token: string;
-  
-  try {
-    token = await getValidOpenSkyToken();
-  } catch (e) {
-    throw new Error("Failed to get OpenSky token");
-  }
-  
-  const trackResponse = await fetch(trackUrl, {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    cache: "no-store",
-  });
-  
-  if (trackResponse.status === 404) {
-    throw new Error("Aircraft not found or no track data available");
-  }
-  
-  if (trackResponse.status === 429) {
-    throw new Error("rate_limited:opensky");
-  }
-  
-  if (!trackResponse.ok) {
-    throw new Error(`OpenSky track error: ${trackResponse.status}`);
-  }
-  
-  const trackData: any = await trackResponse.json();
-  
-  // Extract track points
-  const path: any[] = trackData?.path || [];
-  const points: Point[] = path
-    .map((p) => ({
-      lat: p[1],
-      lon: p[2],
-      ts: p[0],
-      alt_ft: typeof p[3] === "number" ? Math.round(p[3] * 3.28084) : undefined,
-      hdg: typeof p[4] === "number" ? Math.round(p[4]) : undefined,
-    }))
-    .filter((pt) => Number.isFinite(pt.lat) && Number.isFinite(pt.lon));
-  
-  const callsign = trackData?.callsign?.trim() || tail || null;
-  
-  // Start with base data
+  // Start with base data structure
   let result: FlightStatus = {
-    hex: hex.toUpperCase(),
-    tail: callsign,
-    points,
+    hex: hex ? hex.toUpperCase() : '',
+    tail: tail || null,
+    points: [],
     originAirport: null,
     destinationAirport: null,
     originInfo: null,
@@ -499,15 +358,19 @@ export async function getFlightStatus(params: FlightStatusParams): Promise<Fligh
     waypoints: null,
   };
   
-  // Try provider cascade for flight metadata (origin/destination)
   let providerData: Partial<FlightStatus> | null = null;
   let rateLimitedProvider: string | null = null;
   
-  if (callsign && callsign.length >= 3) {
-    // Try FlightAware first
+  // Determine identifier to use for FlightAware lookup
+  // FlightAware can search by tail number or callsign
+  const identifier = tail || hex;
+  
+  if (identifier) {
+    // Try FlightAware (primary provider for everything)
     try {
-      providerData = await fetchFromFlightAware(callsign);
+      providerData = await fetchFromFlightAware(identifier);
       if (providerData) {
+        // Merge all data from FlightAware including track points
         Object.assign(result, providerData);
       }
     } catch (error) {
@@ -515,36 +378,15 @@ export async function getFlightStatus(params: FlightStatusParams): Promise<Fligh
         if (error.statusCode === 429) {
           rateLimitedProvider = error.provider;
         } else if (!error.retryable) {
-          // Non-retryable error (401/403), throw immediately
-          rateLimitedProvider = error.provider;
+          throw new Error(`FlightAware error: ${error.message}`);
         }
-      }
-      // Fall through to next provider
-    }
-    
-    // If FlightAware didn't work, try OpenSky
-    if (!result.originAirport || !result.destinationAirport) {
-      try {
-        // Re-use token we already got earlier
-        providerData = await fetchFromOpenSky(hex, token);
-        if (providerData) {
-          result.originAirport = result.originAirport || providerData.originAirport || null;
-          result.destinationAirport = result.destinationAirport || providerData.destinationAirport || null;
-          result.firstSeen = result.firstSeen || providerData.firstSeen || null;
-          result.lastSeen = result.lastSeen || providerData.lastSeen || null;
-        }
-      } catch (error) {
-        if (error instanceof ProviderError && error.statusCode === 429) {
-          rateLimitedProvider = rateLimitedProvider || error.provider;
-        }
-        // Fall through to next provider
       }
     }
     
-    // If still no data, try AviationStack
-    if (!result.originAirport || !result.destinationAirport) {
+    // If FlightAware didn't provide origin/destination, try AviationStack as fallback
+    if ((!result.originAirport || !result.destinationAirport) && tail) {
       try {
-        providerData = await fetchFromAviationStack(callsign);
+        providerData = await fetchFromAviationStack(tail);
         if (providerData) {
           result.originAirport = result.originAirport || providerData.originAirport || null;
           result.destinationAirport = result.destinationAirport || providerData.destinationAirport || null;
@@ -553,17 +395,22 @@ export async function getFlightStatus(params: FlightStatusParams): Promise<Fligh
         if (error instanceof ProviderError && error.statusCode === 429) {
           rateLimitedProvider = rateLimitedProvider || error.provider;
         }
-        // This is the last provider, errors are logged but not thrown
+        // AviationStack is last fallback, don't throw
       }
     }
   }
   
-  // If all providers rate-limited, throw error
-  if (rateLimitedProvider && !result.originAirport && !result.destinationAirport) {
+  // If we got rate limited and have no data at all, throw
+  if (rateLimitedProvider && result.points.length === 0 && !result.originAirport) {
     throw new Error(`rate_limited:${rateLimitedProvider}`);
   }
   
-  // Fetch airport coordinates if we have airport codes
+  // If we have no track data at all, aircraft not found
+  if (result.points.length === 0) {
+    throw new Error("Aircraft not found or no track data available");
+  }
+  
+  // Fetch airport coordinates if we have airport codes but missing lat/lon
   if (result.originAirport && (!result.originInfo?.lat || !result.originInfo?.lon)) {
     const airportData = await fetchAirportInfo(result.originAirport);
     if (airportData) {
