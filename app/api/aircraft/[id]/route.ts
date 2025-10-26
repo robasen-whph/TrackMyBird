@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
-import { aircraft } from '@/db/schema';
+import { aircraft, guestTokens } from '@/db/schema';
 import { requireVerified } from '@/lib/session';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 // DELETE /api/aircraft/[id] - Delete aircraft
 export async function DELETE(
@@ -44,6 +44,18 @@ export async function DELETE(
         { status: 403 }
       );
     }
+
+    // Auto-revoke guest tokens that reference this aircraft
+    // JSONB contains operator in PostgreSQL: aircraft_ids @> '[$aircraftId]'
+    await db
+      .update(guestTokens)
+      .set({ revoked: true })
+      .where(
+        and(
+          eq(guestTokens.issuedByUserId, session.user.id),
+          sql`${guestTokens.aircraftIds}::jsonb @> ${JSON.stringify([aircraftId])}::jsonb`
+        )
+      );
 
     // Delete aircraft
     await db
