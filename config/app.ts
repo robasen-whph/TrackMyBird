@@ -5,7 +5,7 @@
 
 export const appConfig = {
   // Application version
-  version: "0.42.0",
+  version: "0.43.0",
 
   // Application URL
   url: process.env.APP_URL || "http://localhost:5000",
@@ -15,11 +15,6 @@ export const appConfig = {
     from: process.env.EMAIL_FROM || "TrackMyBird <trackmybird@gmail.com>",
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: parseInt(process.env.SMTP_PORT || "587", 10),
-  },
-
-  // OpenSky API (client ID is not sensitive)
-  opensky: {
-    clientId: process.env.OPENSKY_CLIENT_ID || "nycrobaviation-api-client",
   },
 
   // Feature flags / settings
