@@ -24,12 +24,20 @@ export async function GET(req: Request) {
     return NextResponse.json(status);
   } catch (error: any) {
     const errorMsg = error.message || String(error);
+    console.error('[TRACK ERROR]', errorMsg, error);
     
     // Handle rate limiting errors (match old error format)
     if (errorMsg.startsWith('rate_limited:')) {
       const provider = errorMsg.split(':')[1];
+      const providerName = provider === 'opensky' ? 'OpenSky Network' : 
+                           provider === 'flightaware' ? 'FlightAware' :
+                           provider === 'aviationstack' ? 'AviationStack' : provider;
       return NextResponse.json(
-        { error: "rate_limited", source: provider },
+        { 
+          error: "rate_limited", 
+          source: provider,
+          message: `Rate limit exceeded for ${providerName}. Please try again in a few minutes.`
+        },
         { status: 429 }
       );
     }

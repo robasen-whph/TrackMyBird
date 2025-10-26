@@ -461,6 +461,10 @@ export async function getFlightStatus(params: FlightStatusParams): Promise<Fligh
     throw new Error("Aircraft not found or no track data available");
   }
   
+  if (trackResponse.status === 429) {
+    throw new Error("rate_limited:opensky");
+  }
+  
   if (!trackResponse.ok) {
     throw new Error(`OpenSky track error: ${trackResponse.status}`);
   }
