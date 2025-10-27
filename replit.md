@@ -26,10 +26,12 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
     -   **Smart aircraft deletion**: Single-aircraft tokens revoked when aircraft deleted; multi-aircraft tokens keep access to remaining aircraft
     -   Auto-revoke after 6 months of inactivity (future: email reminder before revocation)
     -   Public guest viewer page showing aircraft list with direct tracking links
--   **Dashboard UX (v0.43)**:
+-   **Dashboard UX (v0.43, Enhanced v0.46)**:
     -   Tabbed interface: "My Aircraft" and "Guest Access" tabs
     -   Clickable aircraft table rows (tail/hex → public tracking page)
     -   Per-aircraft actions: Track, Issue Access, Delete
+    -   **Enhanced Guest Token Display**: Shows actual tail numbers as clickable tracking links instead of just counts
+    -   **Per-Aircraft Removal**: X buttons on multi-aircraft tokens allow removing individual aircraft without revoking entire token
     -   Guest token management: view status, regenerate links, revoke access
     -   Copy-to-clipboard for sharing URLs
 -   **Guest Dashboard & Navigation (v0.44)**:
@@ -64,16 +66,19 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
 -   **Rate Limiting**: Implemented with a sliding window algorithm for API endpoints like `/api/random` and `/api/resolve`.
 -   **Email System**: Supports SMTP with a fallback to file transport in development.
 -   **Map Rendering**: Client-side only using dynamic imports to optimize server-side rendering.
--   **Map UI Enhancements (v0.45)**:
+-   **Map UI Enhancements (v0.45, Bug Fixes v0.46)**:
     -   Leaflet custom controls for toggle switches positioned top-right
     -   DivIcon-based labels for airports and waypoints with CSS styling
+    -   **Fixed Label Positioning**: iconAnchor set to [0,13] for airports and [0,9] for waypoints to properly center labels vertically
     -   Leader line implementation using Leaflet Polylines
     -   Smart label positioning with offset to prevent marker overlap
+    -   **Fixed Path Rendering**: Polyline keys based on segment boundaries force proper React-Leaflet re-rendering, eliminating duplicate gray dashed paths
     -   localStorage-backed preference persistence for display toggles
--   **Guest Token System (v0.43-v0.45)**:
+-   **Guest Token System (v0.43-v0.46)**:
     -   JSONB storage for multi-aircraft token associations with PostgreSQL containment queries
     -   Auto-revoke enforcement at validation and listing endpoints (6-month inactivity threshold)
     -   **Smart deletion handling**: Aircraft deletion removes aircraft ID from multi-aircraft tokens, only revokes single-aircraft tokens
+    -   **Per-aircraft removal**: `/api/invites/[id]/remove-aircraft` endpoint allows removing individual aircraft from multi-aircraft tokens
     -   Token regeneration preserves settings while invalidating old token
     -   Status computation: Active, Revoked, Expired, Dormant (computed, not stored)
     -   Client-side SHA-256 hashing (`lib/hash-client.ts`) with Web Crypto API primary + js-sha256 fallback for cross-browser compatibility

@@ -183,7 +183,7 @@ function formatDuration(seconds: number | null | undefined): string {
   return `${hrs}h ${mins}m`;
 }
 
-const VERSION = "0.45";
+const VERSION = "0.46";
 
 // Get user-friendly error message based on status code
 function getErrorMessage(status: number | null, defaultMsg: string): string {
@@ -226,6 +226,7 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
   const [showAbout, setShowAbout] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [isMultiAircraftGuest, setIsMultiAircraftGuest] = useState<boolean>(false);
+  const [guestAccessError, setGuestAccessError] = useState<string | null>(null);
   
   // Track the last hex that was auto-fitted to prevent re-fitting on polling updates
   const lastFittedHexRef = useRef<string | null>(null);
@@ -345,8 +346,16 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
         if (res.ok && mounted) {
           const data = await res.json();
           setIsMultiAircraftGuest(data.aircraft && data.aircraft.length > 1);
+          setGuestAccessError(null);
         } else if (mounted) {
           setIsMultiAircraftGuest(false);
+          // Capture the error message from the response
+          try {
+            const errorData = await res.json();
+            setGuestAccessError(errorData.error || 'Access denied');
+          } catch {
+            setGuestAccessError('Access denied');
+          }
         }
       } catch (error: any) {
         if (error.name !== 'AbortError' && mounted) {
@@ -668,8 +677,23 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
       {/* Body */}
       <main className="grid md:grid-cols-[1fr_360px]">
         <section className="relative">
-          {/* Error Banner */}
-          {error && (
+          {/* Guest Access Error Banner - Takes precedence */}
+          {guestAccessError && (
+            <div className="absolute top-0 left-0 right-0 z-[1001] bg-red-100 border-b-4 border-red-500 p-5 shadow-lg" data-testid="banner-guest-access-error">
+              <div className="flex items-center gap-3 max-w-4xl mx-auto">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div className="flex-1">
+                  <p className="font-bold text-red-900 text-lg">Access Denied</p>
+                  <p className="text-red-800 mt-1">{guestAccessError}</p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Flight Tracking Error Banner */}
+          {error && !guestAccessError && (
             <div className="absolute top-0 left-0 right-0 z-[1000] bg-red-50 border-b-2 border-red-300 p-4 shadow-md">
               <div className="flex items-start gap-3">
                 <div className="flex-1">
