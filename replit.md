@@ -1,11 +1,20 @@
 # TrackMyBird - Flight Tracker Application
 
 ## Overview
-TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.47.
+TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.48.
 
 ## Recent Changes
 
-### v0.47 (Current Release)
+### v0.48 (Current Release)
+**QA Hardening - Accessibility & Mobile Improvements:**
+1. **Touch Targets**: All main action icon buttons now meet 44×44px minimum for mobile accessibility (Track, Issue Access, Delete, Regenerate, Revoke)
+2. **Accessibility Labels**: Added descriptive aria-label attributes to all icon buttons for screen reader support (e.g., "Track aircraft N12345", "Revoke guest access for John Doe")
+3. **Keyboard Focus**: Implemented visible purple focus rings (:focus-visible) for keyboard navigation across all interactive elements
+4. **Cache Invalidation**: Verified existing state management properly handles immediate UI updates on revoke (instant removal) and refetch on mutations
+
+**Technical Implementation**: Touch targets use `.icon-btn` CSS class scoped to main table actions only (not chip-embedded buttons) to prevent layout regressions while maintaining accessibility.
+
+### v0.47
 **Critical Map Rendering Fixes:**
 1. **Fixed Label Distance from Markers**: Reduced label offset from 0.5° (~30+ miles) to 0.015° (~1 mile), bringing airport/waypoint labels to their proper positions near markers
 2. **Fixed Label Box Sizing**: Added `display: inline-block` and `width: fit-content` to DivIcon labels, preventing boxes from expanding to full container width (1265px → ~60px for airport labels)
