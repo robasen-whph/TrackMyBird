@@ -12,6 +12,11 @@ TrackMyBird is a real-time flight tracking application for US-registered aircraf
 3. **Keyboard Focus**: Implemented visible purple focus rings (:focus-visible) for keyboard navigation across all interactive elements
 4. **Cache Invalidation**: Verified existing state management properly handles immediate UI updates on revoke (instant removal) and refetch on mutations
 
+**Critical Bug Fix - Duplicate Gray Dashed Paths (Final Fix):**
+- **Root Cause**: React-Leaflet was caching multiple Leaflet layer instances due to flawed key-based reconciliation. The previous key strategy (v0.46) used only first/last coordinates rounded to 4 decimals, causing key collisions and stale layer accumulation.
+- **Solution**: Replaced declarative `<Polyline key={...}>` components with imperative `ManagedPolyline` component using `useRef` and direct Leaflet API calls via `setLatLngs()` in `useEffect`. This ensures exactly one Leaflet layer per path segment.
+- **Benefits**: Eliminates duplicate paths, prevents memory leaks, guarantees proper cleanup on unmount/updates.
+
 **Technical Implementation**: Touch targets use `.icon-btn` CSS class scoped to main table actions only (not chip-embedded buttons) to prevent layout regressions while maintaining accessibility.
 
 ### v0.47
