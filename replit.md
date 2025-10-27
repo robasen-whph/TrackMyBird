@@ -55,11 +55,59 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
 
 ## External Dependencies
 -   **FlightAware AeroAPI**: Primary source for all flight data including real-time tracking, origin/destination, and IFR flight plans.
+    -   Route endpoint returns `fixes` array (not `waypoints`) containing IFR flight plan waypoints with coordinates
 -   **AviationStack API**: Fallback provider for origin/destination metadata.
 -   **airport-data.com API**: Provides airport coordinates and details.
+-   **OpenSky Network API**: Used only for development tooling (not production features).
 -   **PostgreSQL**: Relational database for storing user, session, aircraft, and guest token data (5 tables).
 -   **Drizzle ORM**: Used for database interactions.
 -   **Next.js**: Frontend framework.
 -   **React**: UI library.
 -   **Leaflet & react-leaflet**: Interactive mapping library.
 -   **Tailwind CSS**: For styling.
+
+## Development Tools
+**INTERNAL USE ONLY - NOT END-USER FEATURES**
+
+### Random Aircraft Finder (`scripts/find-random-aircraft.ts`)
+A development utility to quickly find random US-registered aircraft currently in flight for testing purposes.
+
+**Usage:**
+```bash
+npx tsx scripts/find-random-aircraft.ts
+```
+
+**How it works:**
+1. Queries OpenSky Network API for aircraft within ~1000 mile radius of central USA (39.5°N, -98.35°W)
+2. Filters for US-registered aircraft (ICAO24 codes starting with 'A')
+3. Randomly selects one aircraft
+4. Converts ICAO24 hex code to N-number using `lib/nnumber-converter.ts`
+5. Outputs tracking URLs for immediate testing
+
+**Requirements:**
+- `OPENSKY_CLIENT_ID` and `OPENSKY_CLIENT_SECRET` environment variables
+- OAuth2 credentials from https://opensky-network.org/
+
+**Error Handling:**
+- Returns distinctive error if no aircraft found (extremely unlikely)
+- Includes detailed error messages for authentication failures
+
+**Example Output:**
+```
+✅ Found 2433 US-registered aircraft in flight
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🛩️  RANDOM AIRCRAFT SELECTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+N-Number:  N37536
+ICAO24:    A4493E
+Callsign:  UAL1644
+Position:  27.8822°N, 85.4270°W
+Altitude:  10973 meters (36000 feet)
+Speed:     384 knots
+Heading:   266°
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔗 Track this aircraft: http://localhost:5000/track/N37536
+🔗 Or use hex code:     http://localhost:5000/track/A4493E
+```
