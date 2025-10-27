@@ -173,18 +173,28 @@ function ManagedPolyline({
   const map = useMap();
   const polylineRef = useRef<L.Polyline | null>(null);
   
+  // Create polyline once on mount, cleanup on unmount
   useEffect(() => {
-    // Create polyline if it doesn't exist
-    if (!polylineRef.current) {
-      polylineRef.current = L.polyline([], {
-        color,
-        weight,
-        opacity,
-        dashArray,
-      }).addTo(map);
-    }
+    polylineRef.current = L.polyline([], {
+      color,
+      weight,
+      opacity,
+      dashArray,
+    }).addTo(map);
     
-    // Update coordinates
+    // Cleanup ONLY on unmount
+    return () => {
+      if (polylineRef.current) {
+        map.removeLayer(polylineRef.current);
+        polylineRef.current = null;
+      }
+    };
+  }, [map]); // Only depends on map - runs once
+  
+  // Update polyline when positions or style change
+  useEffect(() => {
+    if (!polylineRef.current) return;
+    
     if (positions.length > 1) {
       polylineRef.current.setLatLngs(positions as LatLngExpression[]);
       polylineRef.current.setStyle({ color, weight, opacity, dashArray });
@@ -192,15 +202,7 @@ function ManagedPolyline({
       // Clear polyline if no valid positions
       polylineRef.current.setLatLngs([]);
     }
-    
-    // Cleanup on unmount
-    return () => {
-      if (polylineRef.current) {
-        map.removeLayer(polylineRef.current);
-        polylineRef.current = null;
-      }
-    };
-  }, [positions, color, weight, opacity, dashArray, map]);
+  }, [positions, color, weight, opacity, dashArray]);
   
   return null;
 }
