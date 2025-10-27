@@ -164,7 +164,7 @@ export default function DashboardPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this aircraft? Any guest tokens referencing this aircraft will be revoked.')) {
+    if (!confirm('Are you sure you want to delete this aircraft? Single-aircraft guest tokens will be revoked. Multi-aircraft tokens will keep access to other aircraft.')) {
       return;
     }
 

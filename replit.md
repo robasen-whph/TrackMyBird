@@ -19,11 +19,12 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
     -   Flexible aircraft entry: accepts EITHER tail number OR hex code (not both required)
     -   Auto-calculation of missing field using N-number converter
     -   Validation for vanity tail numbers with helpful error messages
--   **Guest Access Sharing (v0.43)**: 
+-   **Guest Access Sharing (v0.43, Enhanced v0.45)**: 
     -   Create shareable tracking links with 256-bit tokens (SHA-256 hashed at rest)
     -   Two duration types: 24-hour temporary or permanent (with 6-month inactivity auto-revoke)
     -   Guest tokens support multiple aircraft, optional nicknames, and regenerate-on-demand
-    -   Automatic revocation when aircraft deleted or after 6 months of inactivity
+    -   **Smart aircraft deletion**: Single-aircraft tokens revoked when aircraft deleted; multi-aircraft tokens keep access to remaining aircraft
+    -   Auto-revoke after 6 months of inactivity (future: email reminder before revocation)
     -   Public guest viewer page showing aircraft list with direct tracking links
 -   **Dashboard UX (v0.43)**:
     -   Tabbed interface: "My Aircraft" and "Guest Access" tabs
@@ -69,9 +70,10 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
     -   Leader line implementation using Leaflet Polylines
     -   Smart label positioning with offset to prevent marker overlap
     -   localStorage-backed preference persistence for display toggles
--   **Guest Token System (v0.43-v0.44)**:
+-   **Guest Token System (v0.43-v0.45)**:
     -   JSONB storage for multi-aircraft token associations with PostgreSQL containment queries
     -   Auto-revoke enforcement at validation and listing endpoints (6-month inactivity threshold)
+    -   **Smart deletion handling**: Aircraft deletion removes aircraft ID from multi-aircraft tokens, only revokes single-aircraft tokens
     -   Token regeneration preserves settings while invalidating old token
     -   Status computation: Active, Revoked, Expired, Dormant (computed, not stored)
     -   Client-side SHA-256 hashing (`lib/hash-client.ts`) with Web Crypto API primary + js-sha256 fallback for cross-browser compatibility

@@ -45,17 +45,37 @@ export async function DELETE(
       );
     }
 
-    // Auto-revoke guest tokens that reference this aircraft
-    // JSONB contains operator in PostgreSQL: aircraft_ids @> '[$aircraftId]'
-    await db
-      .update(guestTokens)
-      .set({ revoked: true })
+    // Handle guest tokens that reference this aircraft
+    // 1. Find all tokens containing this aircraft
+    const affectedTokens = await db
+      .select()
+      .from(guestTokens)
       .where(
         and(
           eq(guestTokens.issuedByUserId, session.user.id),
           sql`${guestTokens.aircraftIds}::jsonb @> ${JSON.stringify([aircraftId])}::jsonb`
         )
       );
+
+    // 2. Process each token
+    for (const token of affectedTokens) {
+      const aircraftIds = token.aircraftIds as number[];
+      
+      if (aircraftIds.length === 1) {
+        // Single-aircraft token: revoke it
+        await db
+          .update(guestTokens)
+          .set({ revoked: true })
+          .where(eq(guestTokens.id, token.id));
+      } else {
+        // Multi-aircraft token: remove only this aircraft ID
+        const updatedIds = aircraftIds.filter(id => id !== aircraftId);
+        await db
+          .update(guestTokens)
+          .set({ aircraftIds: updatedIds })
+          .where(eq(guestTokens.id, token.id));
+      }
+    }
 
     // Delete aircraft
     await db
