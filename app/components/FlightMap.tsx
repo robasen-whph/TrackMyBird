@@ -98,7 +98,7 @@ const getAirportLabel = (code: string, isOrigin: boolean) => {
       white-space: nowrap;
       pointer-events: none;
     ">${code}</div>`,
-    iconAnchor: [0, 0],
+    iconAnchor: [0, 13],
   });
 };
 
@@ -121,7 +121,7 @@ const getWaypointLabel = (name: string) => {
       white-space: nowrap;
       pointer-events: none;
     ">${name}</div>`,
-    iconAnchor: [0, 12],
+    iconAnchor: [0, 9],
   });
 };
 
@@ -292,6 +292,7 @@ export function FlightMap({
       {points.length > 0 && <FitBounds points={points} shouldFit={shouldAutoFit} onFitComplete={onFitComplete} />}
       {completedSegment.length > 1 && (
         <Polyline
+          key={`completed-${completedSegment.length}-${completedSegment[0]?.[0]}-${completedSegment[completedSegment.length-1]?.[0]}`}
           positions={completedSegment}
           color="#a855f7"
           weight={4}
@@ -300,6 +301,7 @@ export function FlightMap({
       )}
       {remainingSegment.length > 1 && (
         <Polyline
+          key={`remaining-${remainingSegment.length}-${remainingSegment[0]?.[0]}-${remainingSegment[remainingSegment.length-1]?.[0]}`}
           positions={remainingSegment}
           color="#94a3b8"
           weight={4}

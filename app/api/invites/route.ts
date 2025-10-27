@@ -129,6 +129,16 @@ export async function GET(request: Request) {
       .where(eq(guestTokens.issuedByUserId, session.user.id))
       .orderBy(guestTokens.createdAt);
 
+    // Fetch all aircraft for this user (for mapping IDs to details)
+    const allUserAircraft = await db
+      .select()
+      .from(aircraft)
+      .where(eq(aircraft.ownerUserId, session.user.id));
+    
+    const aircraftMap = new Map(
+      allUserAircraft.map(ac => [ac.id, { id: ac.id, tail: ac.tail, icao_hex: ac.icaoHex }])
+    );
+
     // Compute status for each token
     const tokensWithStatus = updatedTokens.map((token) => {
       let status = 'Active';
@@ -152,11 +162,18 @@ export async function GET(request: Request) {
       // Duration label
       const durationLabel = token.expiresAt ? '24h' : 'Permanent';
 
+      // Map aircraft IDs to aircraft details
+      const aircraftIds = Array.isArray(token.aircraftIds) ? token.aircraftIds : [];
+      const aircraftDetails = aircraftIds
+        .map(id => aircraftMap.get(id))
+        .filter(Boolean) as { id: number; tail: string; icao_hex: string }[];
+
       return {
         id: token.id,
         nickname: token.nickname,
         aircraft_ids: token.aircraftIds,
-        aircraft_count: Array.isArray(token.aircraftIds) ? token.aircraftIds.length : 0,
+        aircraft: aircraftDetails,
+        aircraft_count: aircraftDetails.length,
         duration: durationLabel,
         status,
         last_view_at: token.lastViewAt,

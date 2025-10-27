@@ -17,6 +17,7 @@ interface Aircraft {
 interface GuestToken {
   id: number;
   nickname: string | null;
+  aircraft: { id: number; tail: string; icao_hex: string }[];
   aircraft_count: number;
   duration: string;
   status: string;
@@ -244,7 +245,7 @@ export default function DashboardPage() {
   };
 
   const handleRevokeToken = async (tokenId: number) => {
-    if (!confirm('Are you sure you want to revoke this guest access?')) {
+    if (!confirm('Are you sure you want to revoke ALL access for this guest?')) {
       return;
     }
 
@@ -255,6 +256,30 @@ export default function DashboardPage() {
 
       if (!res.ok) {
         alert('Failed to revoke token');
+        return;
+      }
+
+      await loadGuestTokens();
+    } catch (err) {
+      alert('Network error');
+    }
+  };
+
+  const handleRemoveAircraft = async (tokenId: number, aircraftId: number, tail: string) => {
+    if (!confirm(`Remove access to ${tail} from this guest token?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/invites/${tokenId}/remove-aircraft`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ aircraft_id: aircraftId }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(data.error || 'Failed to remove aircraft');
         return;
       }
 
@@ -551,8 +576,32 @@ export default function DashboardPage() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                           {token.nickname || '(No nickname)'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                          {token.aircraft_count} aircraft
+                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                          <div className="flex flex-wrap gap-2">
+                            {token.aircraft.map((ac, idx) => (
+                              <div key={idx} className="flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded">
+                                <Link
+                                  href={`/track/${ac.tail}`}
+                                  className="text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-mono text-xs"
+                                  data-testid={`link-aircraft-${token.id}-${idx}`}
+                                >
+                                  {ac.tail}
+                                </Link>
+                                {token.aircraft.length > 1 && (
+                                  <button
+                                    onClick={() => handleRemoveAircraft(token.id, ac.id, ac.tail)}
+                                    className="ml-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                    title={`Remove ${ac.tail}`}
+                                    data-testid={`button-remove-aircraft-${token.id}-${idx}`}
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
                           {token.duration}
