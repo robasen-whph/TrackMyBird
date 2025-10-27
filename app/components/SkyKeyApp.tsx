@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from 'next/dynamic';
 import { Eye, EyeOff, Info } from "lucide-react";
 import { AboutModal } from "./AboutModal";
+import { hashTokenClient } from "@/lib/hash-client";
 
 // Dynamically import FlightMap to prevent SSR issues with Leaflet
 const FlightMap = dynamic(
@@ -181,9 +182,10 @@ const VERSION = "0.43";
 // ---------- UI ----------
 interface SkyKeyAppProps {
   initialId?: string;
+  guestToken?: string | null;
 }
 
-export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
+export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
   const [hex, setHex] = useState("");
   const [tail, setTail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -198,6 +200,8 @@ export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
     return true;
   });
   const [showAbout, setShowAbout] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isMultiAircraftGuest, setIsMultiAircraftGuest] = useState<boolean>(false);
   
   // Track the last hex that was auto-fitted to prevent re-fitting on polling updates
   const lastFittedHexRef = useRef<string | null>(null);
@@ -264,6 +268,76 @@ export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
   const isFlightCompleted = arrivalTime && arrivalTime < now;
   const timeRemaining =
     arrivalTime && !isFlightCompleted ? arrivalTime - now : null;
+
+  // Check authentication status
+  useEffect(() => {
+    const controller = new AbortController();
+    let mounted = true;
+
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/aircraft', { signal: controller.signal });
+        if (mounted) {
+          setIsAuthenticated(res.ok);
+        }
+      } catch (error: any) {
+        if (error.name !== 'AbortError' && mounted) {
+          setIsAuthenticated(false);
+        }
+      }
+    }
+    checkAuth();
+
+    return () => {
+      mounted = false;
+      controller.abort();
+    };
+  }, []);
+
+  // Validate guest token if provided
+  useEffect(() => {
+    const controller = new AbortController();
+    let mounted = true;
+
+    async function validateGuestToken() {
+      if (!guestToken) {
+        if (mounted) {
+          setIsMultiAircraftGuest(false);
+        }
+        return;
+      }
+
+      try {
+        // Hash the token using client-safe function
+        const tokenHash = await hashTokenClient(guestToken);
+
+        const res = await fetch('/api/v/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token_hash: tokenHash }),
+          signal: controller.signal,
+        });
+
+        if (res.ok && mounted) {
+          const data = await res.json();
+          setIsMultiAircraftGuest(data.aircraft && data.aircraft.length > 1);
+        } else if (mounted) {
+          setIsMultiAircraftGuest(false);
+        }
+      } catch (error: any) {
+        if (error.name !== 'AbortError' && mounted) {
+          setIsMultiAircraftGuest(false);
+        }
+      }
+    }
+
+    validateGuestToken();
+
+    return () => {
+      mounted = false;
+      controller.abort();
+    };
+  }, [guestToken]);
 
   // Save version toggle preference
   useEffect(() => {
@@ -447,7 +521,7 @@ export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
       {/* Header */}
       <header className="p-4 border-b bg-white flex flex-col md:flex-row gap-3 md:items-end md:justify-between">
         <div className="flex-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <h1 className="text-2xl font-semibold">TrackMyBird</h1>
             <button
               onClick={() => setShowAbout(true)}
@@ -457,6 +531,24 @@ export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
             >
               <Info className="w-5 h-5" />
             </button>
+            {isAuthenticated && (
+              <a
+                href="/dashboard"
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                data-testid="link-dashboard"
+              >
+                ← My Dashboard
+              </a>
+            )}
+            {!isAuthenticated && isMultiAircraftGuest && guestToken && (
+              <a
+                href={`/v/${guestToken}`}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                data-testid="link-guest-dashboard"
+              >
+                ← View All Aircraft
+              </a>
+            )}
           </div>
           <p className="text-sm text-slate-600 mt-1">
             Track your aircraft and share with family and friends. 

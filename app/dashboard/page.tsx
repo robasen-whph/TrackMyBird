@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Plane, Users, ExternalLink, Copy, Check } from 'lucide-react';
+import { nNumberToIcao, icaoToNNumber } from '@/lib/nnumber-converter';
 
 interface Aircraft {
   id: number;
@@ -94,10 +95,53 @@ export default function DashboardPage() {
     setSubmitting(true);
 
     try {
+      let finalTail = tail.trim().toUpperCase();
+      let finalHex = icaoHex.trim().toUpperCase();
+
+      // Validate that at least one field is provided
+      if (!finalTail && !finalHex) {
+        setAddError('Please provide either a tail number or ICAO hex code');
+        setSubmitting(false);
+        return;
+      }
+
+      // If only tail is provided, calculate hex
+      if (finalTail && !finalHex) {
+        const calculatedHex = nNumberToIcao(finalTail);
+        if (!calculatedHex) {
+          setAddError('Invalid tail number format. If this is a vanity tail number, please also provide the ICAO hex code.');
+          setSubmitting(false);
+          return;
+        }
+        finalHex = calculatedHex.toUpperCase();
+      }
+
+      // If only hex is provided, calculate tail
+      if (finalHex && !finalTail) {
+        const calculatedTail = icaoToNNumber(finalHex);
+        if (!calculatedTail) {
+          setAddError('Invalid ICAO hex code. Please also provide the tail number.');
+          setSubmitting(false);
+          return;
+        }
+        finalTail = calculatedTail.toUpperCase();
+      }
+
+      // If both provided, verify they match
+      if (tail && icaoHex) {
+        const hexFromTail = nNumberToIcao(finalTail);
+        const tailFromHex = icaoToNNumber(finalHex);
+        if (hexFromTail !== finalHex && tailFromHex !== finalTail) {
+          setAddError('The tail number and ICAO hex code do not match. Please verify your inputs.');
+          setSubmitting(false);
+          return;
+        }
+      }
+
       const res = await fetch('/api/aircraft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tail, icao_hex: icaoHex }),
+        body: JSON.stringify({ tail: finalTail, icao_hex: finalHex }),
       });
 
       const data = await res.json();
@@ -592,6 +636,12 @@ export default function DashboardPage() {
                 </div>
               )}
 
+              <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                <p className="text-sm text-blue-800 dark:text-blue-400">
+                  You only need to provide either the tail number OR the hex code. We'll automatically calculate the other field for you.
+                </p>
+              </div>
+
               <div>
                 <label htmlFor="tail" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Tail Number (N-Number)
@@ -601,7 +651,6 @@ export default function DashboardPage() {
                   type="text"
                   value={tail}
                   onChange={(e) => setTail(e.target.value)}
-                  required
                   className="w-full h-12 px-4 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20 transition-colors uppercase"
                   placeholder="N12345"
                   data-testid="input-tail"
@@ -617,7 +666,6 @@ export default function DashboardPage() {
                   type="text"
                   value={icaoHex}
                   onChange={(e) => setIcaoHex(e.target.value)}
-                  required
                   className="w-full h-12 px-4 rounded-lg border-2 border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-purple-500 dark:focus:border-purple-400 focus:ring-2 focus:ring-purple-500/20 transition-colors uppercase font-mono"
                   placeholder="A12345"
                   maxLength={6}

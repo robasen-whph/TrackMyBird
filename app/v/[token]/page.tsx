@@ -2,7 +2,7 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { hashToken } from '@/lib/auth';
+import { hashTokenClient } from '@/lib/hash-client';
 import Link from 'next/link';
 import { AlertCircle, Plane } from 'lucide-react';
 
@@ -30,13 +30,15 @@ export default function GuestViewPage() {
   const [tokenData, setTokenData] = useState<GuestTokenData | null>(null);
 
   useEffect(() => {
+    let mounted = true;
+
     async function validateToken() {
       try {
         setLoading(true);
         setError(null);
 
-        // Hash the token
-        const tokenHash = hashToken(token);
+        // Hash the token using client-safe function
+        const tokenHash = await hashTokenClient(token);
 
         // Validate with backend
         const response = await fetch('/api/v/validate', {
@@ -51,25 +53,35 @@ export default function GuestViewPage() {
         }
 
         const data = await response.json();
-        setTokenData(data);
+        if (mounted) {
+          setTokenData(data);
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to validate token');
+        if (mounted) {
+          setError(err instanceof Error ? err.message : 'Failed to validate token');
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     }
 
     if (token) {
       validateToken();
     }
+
+    return () => {
+      mounted = false;
+    };
   }, [token]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600">Validating access...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 dark:border-purple-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Validating access...</p>
         </div>
       </div>
     );
@@ -77,16 +89,16 @@ export default function GuestViewPage() {
 
   if (error || !tokenData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-slate-900 mb-2">Access Denied</h1>
-          <p className="text-slate-600 mb-6">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-xl shadow-lg p-8 text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 dark:text-red-400 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Access Denied</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">
             {error || 'This tracking link is invalid or has expired.'}
           </p>
           <Link
             href="/"
-            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
             data-testid="link-home"
           >
             Go to Home
@@ -98,73 +110,87 @@ export default function GuestViewPage() {
 
   const { nickname, aircraft, duration, status, expiresAt } = tokenData;
 
+  // Auto-redirect for single aircraft (only after mount to avoid hydration issues)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && aircraft.length === 1) {
+      // Small delay to ensure router is fully ready
+      const timeoutId = setTimeout(() => {
+        router.push(`/track/${aircraft[0].tail}?guest=${token}`);
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [aircraft, token, router]);
+
+  // Show loading while redirecting for single aircraft
+  if (aircraft.length === 1) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+        <div className="text-gray-600 dark:text-gray-400">Redirecting to flight tracker...</div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-3xl font-bold text-slate-900">TrackMyBird</h1>
-          <p className="text-sm text-slate-600 mt-1">Guest Access</p>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+      <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+        <div className="h-full px-6 flex items-center justify-between">
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white">TrackMyBird</h1>
+          <span className="text-sm text-gray-600 dark:text-gray-400">Guest Access</span>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        {/* Guest Info Card */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold text-slate-900 mb-4">
-            {nickname ? `Welcome, ${nickname}` : 'Welcome'}
+      <main className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
+        {/* Page Header */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+            {nickname || 'Aircraft Tracking Access'}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <span className="text-slate-600">Access Duration:</span>
-              <span className="ml-2 font-medium text-slate-900" data-testid="text-duration">
-                {duration}
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-600">Status:</span>
-              <span
-                className={`ml-2 font-medium ${
-                  status === 'Active' ? 'text-green-600' : 'text-slate-600'
-                }`}
-                data-testid="text-status"
-              >
-                {status}
-              </span>
-            </div>
+          <div className="flex flex-wrap gap-4 mt-2">
+            <p className="text-gray-600 dark:text-gray-400">
+              Duration: <span className="font-medium" data-testid="text-duration">{duration}</span>
+            </p>
+            <p className="text-gray-600 dark:text-gray-400">
+              Status: <span className={`font-medium ${status === 'Active' ? 'text-green-600 dark:text-green-400' : 'text-gray-600 dark:text-gray-400'}`} data-testid="text-status">{status}</span>
+            </p>
             {expiresAt && (
-              <div>
-                <span className="text-slate-600">Expires:</span>
-                <span className="ml-2 font-medium text-slate-900" data-testid="text-expires">
-                  {new Date(expiresAt).toLocaleString()}
-                </span>
-              </div>
+              <p className="text-gray-600 dark:text-gray-400">
+                Expires: <span className="font-medium" data-testid="text-expires">{new Date(expiresAt).toLocaleString()}</span>
+              </p>
             )}
           </div>
         </div>
 
         {/* Aircraft List */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            Tracked Aircraft ({aircraft.length})
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg overflow-hidden">
+          <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <Plane className="w-5 h-5" />
+              Available Aircraft ({aircraft.length})
+            </h3>
+          </div>
+          <div className="divide-y divide-gray-200 dark:divide-gray-800">
             {aircraft.map((ac) => (
               <Link
                 key={ac.id}
-                href={`/track/${ac.tail}`}
-                className="block p-4 border border-slate-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all"
+                href={`/track/${ac.tail}?guest=${token}`}
+                className="flex items-center justify-between p-6 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 data-testid={`card-aircraft-${ac.id}`}
               >
-                <div className="flex items-center gap-3">
-                  <Plane className="w-8 h-8 text-blue-600" />
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                    <Plane className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                  </div>
                   <div>
-                    <div className="font-semibold text-slate-900" data-testid={`text-tail-${ac.id}`}>
+                    <div className="text-lg font-semibold text-gray-900 dark:text-white" data-testid={`text-tail-${ac.id}`}>
                       {ac.tail}
                     </div>
-                    <div className="text-sm text-slate-600" data-testid={`text-hex-${ac.id}`}>
-                      {ac.hex}
+                    <div className="text-sm text-gray-600 dark:text-gray-400 font-mono" data-testid={`text-hex-${ac.id}`}>
+                      ICAO: {ac.hex}
                     </div>
                   </div>
+                </div>
+                <div className="text-purple-600 dark:text-purple-400 text-sm font-medium">
+                  Track Flight →
                 </div>
               </Link>
             ))}

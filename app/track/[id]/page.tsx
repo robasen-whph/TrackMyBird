@@ -1,13 +1,16 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { SkyKeyApp } from '@/app/components/SkyKeyApp';
 
 export default function TrackPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
+  const guestToken = searchParams.get('guest');
 
-  // Pass the ID as initialTail or initialHex to SkyKeyApp
+  // Pass the ID and guest token to SkyKeyApp
   // SkyKeyApp will auto-detect whether it's a tail or hex
-  return <SkyKeyApp initialId={id} />;
+  // and handle navigation based on guest token presence
+  return <SkyKeyApp initialId={id} guestToken={guestToken} />;
 }
