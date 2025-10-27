@@ -1,17 +1,15 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Polyline,
-  useMap,
-} from "react-leaflet";
-import L, { LatLngBoundsExpression, LatLngExpression } from "leaflet";
+import dynamic from 'next/dynamic';
 import { Eye, EyeOff, Info } from "lucide-react";
-import "leaflet/dist/leaflet.css";
 import { AboutModal } from "./AboutModal";
+
+// Dynamically import FlightMap to prevent SSR issues with Leaflet
+const FlightMap = dynamic(
+  () => import('./FlightMap').then((mod) => ({ default: mod.FlightMap })),
+  { ssr: false, loading: () => <div className="h-full w-full flex items-center justify-center bg-slate-100">Loading map...</div> }
+);
 
 // ---------- Types ----------
 type Point = {
@@ -50,56 +48,6 @@ type Track = {
 };
 type ApiError = { message?: string };
 
-// ---------- Icons ----------
-const originPin = new L.DivIcon({
-  className: "",
-  html: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='36' height='36'>
-    <path fill='#10b981' stroke='white' stroke-width='2' d='M16 2c-4.5 0-8 3.5-8 8 0 6 8 16 8 16s8-10 8-16c0-4.5-3.5-8-8-8z'/>
-    <circle cx='16' cy='10' r='4' fill='white'/>
-  </svg>`,
-  iconAnchor: [18, 36],
-});
-
-const destinationPin = new L.DivIcon({
-  className: "",
-  html: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='36' height='36'>
-    <path fill='#ef4444' stroke='white' stroke-width='2' d='M16 2c-4.5 0-8 3.5-8 8 0 6 8 16 8 16s8-10 8-16c0-4.5-3.5-8-8-8z'/>
-    <circle cx='16' cy='10' r='4' fill='white'/>
-  </svg>`,
-  iconAnchor: [18, 36],
-});
-
-const planeIcon = (heading?: number) =>
-  new L.DivIcon({
-    className: "",
-    html: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='-24 -24 48 48' width='48' height='48' style="transform: rotate(${heading ?? 0}deg);">
-      <path fill='#3b82f6' stroke='white' stroke-width='1.5' 
-            d='M0,-16 L3,-14 L10,-4 L10,0 L4,0 L4,6 L7,10 L3,10 L0,8 L-3,10 L-7,10 L-4,6 L-4,0 L-10,0 L-10,-4 L-3,-14 Z'/>
-      <ellipse cx='0' cy='-8' rx='2.5' ry='4' fill='#1e40af' opacity='0.6'/>
-    </svg>`,
-    iconAnchor: [24, 24],
-  });
-
-// ---------- Map helpers ----------
-function FitBounds({ points, shouldFit, onFitComplete }: { 
-  points: Point[]; 
-  shouldFit: boolean;
-  onFitComplete: () => void;
-}) {
-  const map = useMap();
-  useEffect(() => {
-    if (!shouldFit || !points?.length) return;
-    const latlngs = points.map((p) => [p.lat, p.lon]) as LatLngExpression[];
-    const bounds = L.latLngBounds(latlngs);
-    if (latlngs.length === 1) {
-      map.setView(latlngs[0] as any, 10, { animate: true });
-    } else {
-      map.fitBounds(bounds.pad(0.25), { animate: true });
-    }
-    onFitComplete();
-  }, [points, map, shouldFit, onFitComplete]);
-  return null;
-}
 
 // ---------- Fetch layer ----------
 async function safeFetch(url: string) {
@@ -354,25 +302,6 @@ export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
     }
   }, []);
 
-  // Auto-fetch on mount if initialId is provided
-  useEffect(() => {
-    if (!initialId) return;
-    
-    // Detect if it's a hex (6 chars alphanumeric) or tail (starts with N)
-    const isHex = /^[A-Fa-f0-9]{6}$/.test(initialId);
-    const isTail = /^N/.test(initialId.toUpperCase());
-    
-    if (isHex) {
-      setHex(initialId.toUpperCase());
-      handleFetchByHex(initialId.toUpperCase());
-    } else if (isTail) {
-      setTail(initialId.toUpperCase());
-      handleFetchByTail(initialId.toUpperCase());
-    }
-    // Only run once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const handleFetchByTail = useCallback(async (t: string) => {
     if (!t) return;
     setLoading(true);
@@ -391,6 +320,23 @@ export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
       setLoading(false);
     }
   }, []);
+
+  // Auto-fetch on mount if initialId is provided
+  useEffect(() => {
+    if (!initialId) return;
+    
+    // Detect if it's a hex (6 chars alphanumeric) or tail (starts with N)
+    const isHex = /^[A-Fa-f0-9]{6}$/.test(initialId);
+    const isTail = /^N/.test(initialId.toUpperCase());
+    
+    if (isHex) {
+      setHex(initialId.toUpperCase());
+      handleFetchByHex(initialId.toUpperCase());
+    } else if (isTail) {
+      setTail(initialId.toUpperCase());
+      handleFetchByTail(initialId.toUpperCase());
+    }
+  }, [initialId, handleFetchByHex, handleFetchByTail]);
 
   const handleRandom = useCallback(async () => {
     setLoading(true);
@@ -421,7 +367,7 @@ export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
   const completedSegment = useMemo(() => {
     if (!filteredTrackPoints.length) return [];
     
-    const segment: LatLngExpression[] = [];
+    const segment: [number, number][] = [];
     
     // Add origin airport if available
     if (Number.isFinite(track?.originInfo?.lat) && Number.isFinite(track?.originInfo?.lon)) {
@@ -438,7 +384,7 @@ export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
     if (!filteredTrackPoints.length || !destination) return [];
     
     const lastPoint = filteredTrackPoints[filteredTrackPoints.length - 1];
-    const segment: LatLngExpression[] = [[lastPoint.lat, lastPoint.lon]];
+    const segment: [number, number][] = [[lastPoint.lat, lastPoint.lon]];
     
     // Use IFR waypoints if available, otherwise straight line to destination
     if (track?.waypoints && track.waypoints.length > 0) {
@@ -588,49 +534,16 @@ export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
       {/* Body */}
       <main className="grid md:grid-cols-[1fr_360px]">
         <section className="relative">
-          <MapContainer
-            center={[39.5, -98.35]}
-            zoom={4}
-            className="h-full w-full"
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution="&copy; OpenStreetMap"
-            />
-            {points.length > 0 && <FitBounds points={points} shouldFit={shouldAutoFit} onFitComplete={handleFitComplete} />}
-            {completedSegment.length > 1 && (
-              <Polyline
-                positions={completedSegment}
-                color="#a855f7"
-                weight={4}
-                opacity={0.9}
-              />
-            )}
-            {remainingSegment.length > 1 && (
-              <Polyline
-                positions={remainingSegment}
-                color="#94a3b8"
-                weight={4}
-                opacity={0.6}
-                dashArray="8, 8"
-              />
-            )}
-            {origin && (
-              <Marker position={[origin.lat, origin.lon]} icon={originPin} />
-            )}
-            {destination && (
-              <Marker
-                position={[destination.lat, destination.lon]}
-                icon={destinationPin}
-              />
-            )}
-            {current && (
-              <Marker
-                position={[current.lat, current.lon]}
-                icon={planeIcon(current.hdg)}
-              />
-            )}
-          </MapContainer>
+          <FlightMap
+            points={points}
+            completedSegment={completedSegment}
+            remainingSegment={remainingSegment}
+            origin={origin}
+            destination={destination}
+            current={current}
+            shouldAutoFit={shouldAutoFit}
+            onFitComplete={handleFitComplete}
+          />
         </section>
 
         <aside className="p-4 border-l bg-white overflow-y-auto">
