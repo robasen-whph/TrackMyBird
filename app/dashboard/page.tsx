@@ -479,8 +479,9 @@ export default function DashboardPage() {
                           <div className="flex items-center justify-end gap-3">
                             <Link
                               href={`/track/${a.tail}`}
-                              className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                              className="icon-btn p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                               title="View live tracking map for this aircraft"
+                              aria-label={`Track aircraft ${a.tail}`}
                               data-testid={`button-track-${a.id}`}
                             >
                               <Radar className="w-4 h-4" />
@@ -490,16 +491,18 @@ export default function DashboardPage() {
                                 setSelectedAircraft([a.id]);
                                 setShowIssueAccessModal(true);
                               }}
-                              className="p-2 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                              className="icon-btn p-2 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
                               title="Create a guest access link for this aircraft"
+                              aria-label={`Issue access for aircraft ${a.tail}`}
                               data-testid={`button-issue-access-${a.id}`}
                             >
                               <Key className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(a.id)}
-                              className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              className="icon-btn p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                               title="Remove this aircraft from your account"
+                              aria-label={`Delete aircraft ${a.tail}`}
                               data-testid={`button-delete-${a.id}`}
                             >
                               <Trash2 className="w-4 h-4" />
@@ -593,8 +596,9 @@ export default function DashboardPage() {
                                 {token.aircraft.length > 1 && (
                                   <button
                                     onClick={() => handleRemoveAircraft(token.id, ac.id, ac.tail)}
-                                    className="ml-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                    className="icon-btn ml-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-2"
                                     title={`Remove ${ac.tail}`}
+                                    aria-label={`Remove aircraft ${ac.tail} from guest token`}
                                     data-testid={`button-remove-aircraft-${token.id}-${idx}`}
                                   >
                                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -633,16 +637,18 @@ export default function DashboardPage() {
                             <button
                               onClick={() => handleRegenerateLink(token.id)}
                               disabled={regeneratingTokenId === token.id}
-                              className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="icon-btn p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               title={regeneratingTokenId === token.id ? 'Regenerating...' : 'Generate a new sharing link (old link will stop working)'}
+                              aria-label={`Regenerate guest link for ${token.nickname || 'guest token'}`}
                               data-testid={`button-regenerate-${token.id}`}
                             >
                               <RefreshCw className={`h-4 w-4 ${regeneratingTokenId === token.id ? 'animate-spin' : ''}`} />
                             </button>
                             <button
                               onClick={() => handleRevokeToken(token.id)}
-                              className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              className="icon-btn p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                               title="Revoke access (permanently delete this guest link)"
+                              aria-label={`Revoke guest access for ${token.nickname || 'guest token'}`}
                               data-testid={`button-revoke-${token.id}`}
                             >
                               <Trash2 className="h-4 w-4" />
