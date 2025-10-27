@@ -596,7 +596,7 @@ export default function DashboardPage() {
                                 {token.aircraft.length > 1 && (
                                   <button
                                     onClick={() => handleRemoveAircraft(token.id, ac.id, ac.tail)}
-                                    className="icon-btn ml-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-2"
+                                    className="ml-1 p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                                     title={`Remove ${ac.tail}`}
                                     aria-label={`Remove aircraft ${ac.tail} from guest token`}
                                     data-testid={`button-remove-aircraft-${token.id}-${idx}`}
