@@ -573,11 +573,12 @@ export function SkyKeyApp({ initialId }: SkyKeyAppProps = {}) {
             </button>
           </div>
 
-          {/* Random Button */}
+          {/* Random Button - Temporarily Disabled */}
           <button
             onClick={handleRandom}
-            className="px-4 py-2 rounded border-2 border-slate-300 hover:border-slate-400 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:border-slate-300"
-            disabled={loading}
+            className="px-4 py-2 rounded border-2 border-slate-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={true}
+            title="Random aircraft feature temporarily unavailable"
           >
             Random
           </button>

@@ -3,6 +3,8 @@
  * Providers: FlightAware (primary) → AviationStack (fallback) → airport-data.com
  */
 
+import { icaoToNNumber } from './nnumber-converter';
+
 // Types
 export interface FlightStatusParams {
   hex?: string;
@@ -362,8 +364,19 @@ export async function getFlightStatus(params: FlightStatusParams): Promise<Fligh
   let rateLimitedProvider: string | null = null;
   
   // Determine identifier to use for FlightAware lookup
-  // FlightAware can search by tail number or callsign
-  const identifier = tail || hex;
+  // FlightAware requires tail numbers, so convert hex to tail if needed
+  let identifier = tail;
+  if (!identifier && hex) {
+    // Convert hex to tail number for FlightAware
+    const converted = icaoToNNumber(hex);
+    if (converted) {
+      identifier = converted;
+      result.tail = converted; // Store the converted tail number
+      console.log(`[Converter] Converted ${hex.toUpperCase()} → ${converted}`);
+    } else {
+      throw new Error("Failed to convert hex code to N-number");
+    }
+  }
   
   if (identifier) {
     // Try FlightAware (primary provider for everything)
