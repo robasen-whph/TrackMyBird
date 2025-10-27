@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Plane, Users, ExternalLink, Copy, Check, RefreshCw, Trash2 } from 'lucide-react';
+import { Plane, Users, Copy, Check, RefreshCw, Trash2, Radar, Key } from 'lucide-react';
 import { nNumberToIcao, icaoToNNumber } from '@/lib/nnumber-converter';
 
 interface Aircraft {
@@ -259,7 +259,8 @@ export default function DashboardPage() {
         return;
       }
 
-      await loadGuestTokens();
+      // Remove the entry from the UI immediately
+      setGuestTokens(tokens => tokens.filter(t => t.id !== tokenId));
     } catch (err) {
       alert('Network error');
     }
@@ -478,28 +479,30 @@ export default function DashboardPage() {
                           <div className="flex items-center justify-end gap-3">
                             <Link
                               href={`/track/${a.tail}`}
-                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 flex items-center gap-1"
+                              className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                              title="View live tracking map for this aircraft"
                               data-testid={`button-track-${a.id}`}
                             >
-                              <ExternalLink className="w-4 h-4" />
-                              Track
+                              <Radar className="w-4 h-4" />
                             </Link>
                             <button
                               onClick={() => {
                                 setSelectedAircraft([a.id]);
                                 setShowIssueAccessModal(true);
                               }}
-                              className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                              className="p-2 text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                              title="Create a guest access link for this aircraft"
                               data-testid={`button-issue-access-${a.id}`}
                             >
-                              Issue Access
+                              <Key className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(a.id)}
-                              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                              className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              title="Remove this aircraft from your account"
                               data-testid={`button-delete-${a.id}`}
                             >
-                              Delete
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
