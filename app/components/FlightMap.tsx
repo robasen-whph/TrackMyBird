@@ -175,12 +175,12 @@ function MapControls({
         div.innerHTML = `
           <div style="display: flex; flex-direction: column; gap: 8px;">
             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
-              <input type="checkbox" id="toggle-airport-labels" ${showAirportLabels ? 'checked' : ''} 
+              <input type="checkbox" id="toggle-airport-labels" 
                      style="cursor: pointer;" data-testid="toggle-airport-labels" />
               <span>Show airport labels</span>
             </label>
             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
-              <input type="checkbox" id="toggle-waypoint-names" ${showWaypointNames ? 'checked' : ''}
+              <input type="checkbox" id="toggle-waypoint-names"
                      style="cursor: pointer;" data-testid="toggle-waypoint-names" />
               <span>Show waypoint names</span>
             </label>
@@ -191,6 +191,10 @@ function MapControls({
         
         const airportToggle = div.querySelector('#toggle-airport-labels') as HTMLInputElement;
         const waypointToggle = div.querySelector('#toggle-waypoint-names') as HTMLInputElement;
+        
+        // Set initial checked states
+        if (airportToggle) airportToggle.checked = showAirportLabels;
+        if (waypointToggle) waypointToggle.checked = showWaypointNames;
         
         airportToggle?.addEventListener('change', (e) => {
           const checked = (e.target as HTMLInputElement).checked;
