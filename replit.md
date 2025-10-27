@@ -1,11 +1,19 @@
 # TrackMyBird - Flight Tracker Application
 
 ## Overview
-TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.46.
+TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.47.
 
 ## Recent Changes
 
-### v0.46 (Current Release)
+### v0.47 (Current Release)
+**Critical Map Rendering Fixes:**
+1. **Fixed Label Distance from Markers**: Reduced label offset from 0.5° (~30+ miles) to 0.015° (~1 mile), bringing airport/waypoint labels to their proper positions near markers
+2. **Fixed Label Box Sizing**: Added `display: inline-block` and `width: fit-content` to DivIcon labels, preventing boxes from expanding to full container width (1265px → ~60px for airport labels)
+3. **Fixed Label Text Centering**: Dynamic iconAnchor calculation based on estimated text width ensures label boxes center on text instead of left-aligning (airport: `(length * 9 + 20) / 2`; waypoint: `(length * 7 + 14) / 2`)
+
+**Testing**: All three fixes verified with end-to-end Playwright testing - labels appear 8-24px from markers, boxes properly sized (~60px airport, ~46px waypoint), and only single purple/grey path pair displays with no duplicates.
+
+### v0.46
 **Bug Fixes & Enhancements:**
 1. **Fixed Map Label Positioning**: Airport labels now properly centered with iconAnchor [0,13]; waypoint labels with [0,9] - eliminates floating/misaligned labels
 2. **Fixed Duplicate Gray Paths**: Polyline components now use segment-boundary keys to force proper React-Leaflet re-rendering, preventing accumulation of stale dashed paths
