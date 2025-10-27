@@ -1,7 +1,25 @@
 # TrackMyBird - Flight Tracker Application
 
 ## Overview
-TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.45.
+TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.46.
+
+## Recent Changes
+
+### v0.46 (Current Release)
+**Bug Fixes & Enhancements:**
+1. **Fixed Map Label Positioning**: Airport labels now properly centered with iconAnchor [0,13]; waypoint labels with [0,9] - eliminates floating/misaligned labels
+2. **Fixed Duplicate Gray Paths**: Polyline components now use segment-boundary keys to force proper React-Leaflet re-rendering, preventing accumulation of stale dashed paths
+3. **Enhanced Guest Dashboard**: 
+   - Guest tokens now display individual aircraft tail numbers as clickable tracking links instead of just counts
+   - Added per-aircraft removal with X buttons on multi-aircraft tokens
+   - Created `/api/invites/[id]/remove-aircraft` endpoint for granular aircraft removal
+   - Prevents removing last aircraft from token (requires full revoke instead)
+4. **Fixed Guest Access Error Display**: 
+   - Revoked/expired guest tokens now show prominent "Access Denied" banner instead of generic "404 No flight found" message
+   - Added proper error state handling with clear user messaging
+   - Guest access errors take precedence over flight tracking errors
+
+**Testing**: All fixes verified with comprehensive end-to-end testing including authentication flow, multi-aircraft tokens, per-aircraft removal, and revocation handling.
 
 ## User Preferences
 I prefer detailed explanations.
