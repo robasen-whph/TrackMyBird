@@ -2,7 +2,7 @@
 
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import "leaflet/dist/leaflet.css";
 
 type Point = {
@@ -156,6 +156,55 @@ function FitBounds({ points, shouldFit, onFitComplete }: {
   return null;
 }
 
+// Imperative Polyline manager to prevent duplicate paths
+function ManagedPolyline({ 
+  positions, 
+  color, 
+  weight, 
+  opacity, 
+  dashArray 
+}: { 
+  positions: [number, number][]; 
+  color: string; 
+  weight: number; 
+  opacity: number; 
+  dashArray?: string;
+}) {
+  const map = useMap();
+  const polylineRef = useRef<L.Polyline | null>(null);
+  
+  useEffect(() => {
+    // Create polyline if it doesn't exist
+    if (!polylineRef.current) {
+      polylineRef.current = L.polyline([], {
+        color,
+        weight,
+        opacity,
+        dashArray,
+      }).addTo(map);
+    }
+    
+    // Update coordinates
+    if (positions.length > 1) {
+      polylineRef.current.setLatLngs(positions as LatLngExpression[]);
+      polylineRef.current.setStyle({ color, weight, opacity, dashArray });
+    } else {
+      // Clear polyline if no valid positions
+      polylineRef.current.setLatLngs([]);
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      if (polylineRef.current) {
+        map.removeLayer(polylineRef.current);
+        polylineRef.current = null;
+      }
+    };
+  }, [positions, color, weight, opacity, dashArray, map]);
+  
+  return null;
+}
+
 // Map controls for toggles
 function MapControls({ 
   showAirportLabels, 
@@ -301,25 +350,19 @@ export function FlightMap({
         setShowWaypointNames={setShowWaypointNames}
       />
       {points.length > 0 && <FitBounds points={points} shouldFit={shouldAutoFit} onFitComplete={onFitComplete} />}
-      {completedSegment.length > 1 && (
-        <Polyline
-          key={`completed-${completedSegment.length}-${completedSegment[0]?.[0]?.toFixed(4)}-${completedSegment[0]?.[1]?.toFixed(4)}-${completedSegment[completedSegment.length-1]?.[0]?.toFixed(4)}-${completedSegment[completedSegment.length-1]?.[1]?.toFixed(4)}`}
-          positions={completedSegment}
-          color="#a855f7"
-          weight={4}
-          opacity={0.9}
-        />
-      )}
-      {remainingSegment.length > 1 && (
-        <Polyline
-          key={`remaining-${remainingSegment.length}-${remainingSegment[0]?.[0]?.toFixed(4)}-${remainingSegment[0]?.[1]?.toFixed(4)}-${remainingSegment[remainingSegment.length-1]?.[0]?.toFixed(4)}-${remainingSegment[remainingSegment.length-1]?.[1]?.toFixed(4)}`}
-          positions={remainingSegment}
-          color="#94a3b8"
-          weight={4}
-          opacity={0.6}
-          dashArray="8, 8"
-        />
-      )}
+      <ManagedPolyline
+        positions={completedSegment}
+        color="#a855f7"
+        weight={4}
+        opacity={0.9}
+      />
+      <ManagedPolyline
+        positions={remainingSegment}
+        color="#94a3b8"
+        weight={4}
+        opacity={0.6}
+        dashArray="8, 8"
+      />
       {origin && getOriginPin() && (
         <Marker position={[origin.lat, origin.lon]} icon={getOriginPin()!} />
       )}
