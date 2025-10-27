@@ -29,6 +29,7 @@ export default function GuestViewPage() {
   const [error, setError] = useState<string | null>(null);
   const [tokenData, setTokenData] = useState<GuestTokenData | null>(null);
 
+  // Validation effect - always runs first
   useEffect(() => {
     let mounted = true;
 
@@ -76,6 +77,17 @@ export default function GuestViewPage() {
     };
   }, [token]);
 
+  // Auto-redirect for single aircraft (must be declared before early returns)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && tokenData && tokenData.aircraft.length === 1) {
+      // Small delay to ensure router is fully ready
+      const timeoutId = setTimeout(() => {
+        router.push(`/track/${tokenData.aircraft[0].tail}?guest=${token}`);
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [tokenData, token, router]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
@@ -109,17 +121,6 @@ export default function GuestViewPage() {
   }
 
   const { nickname, aircraft, duration, status, expiresAt } = tokenData;
-
-  // Auto-redirect for single aircraft (only after mount to avoid hydration issues)
-  useEffect(() => {
-    if (typeof window !== 'undefined' && aircraft.length === 1) {
-      // Small delay to ensure router is fully ready
-      const timeoutId = setTimeout(() => {
-        router.push(`/track/${aircraft[0].tail}?guest=${token}`);
-      }, 100);
-      return () => clearTimeout(timeoutId);
-    }
-  }, [aircraft, token, router]);
 
   // Show loading while redirecting for single aircraft
   if (aircraft.length === 1) {
