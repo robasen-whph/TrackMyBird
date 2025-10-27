@@ -1,7 +1,7 @@
 # TrackMyBird - Flight Tracker Application
 
 ## Overview
-TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.43.
+TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.44.
 
 ## User Preferences
 I prefer detailed explanations.
@@ -14,7 +14,11 @@ I like functional programming.
 The application is built on **Next.js 15.5.6 with React 19.2.0** for the frontend, using the **App Router**. Styling is handled with **Tailwind CSS v4**. Data persistence uses **PostgreSQL with Drizzle ORM**. User authentication is session-based with email verification and HTTP-only cookies.
 
 **Key Features:**
--   **User Authentication & Aircraft Management**: Secure signup/login, email verification, and CRUD operations for aircraft (tail number + hex code).
+-   **User Authentication & Aircraft Management (Enhanced v0.44)**: 
+    -   Secure signup/login with email verification
+    -   Flexible aircraft entry: accepts EITHER tail number OR hex code (not both required)
+    -   Auto-calculation of missing field using N-number converter
+    -   Validation for vanity tail numbers with helpful error messages
 -   **Guest Access Sharing (v0.43)**: 
     -   Create shareable tracking links with 256-bit tokens (SHA-256 hashed at rest)
     -   Two duration types: 24-hour temporary or permanent (with 6-month inactivity auto-revoke)
@@ -27,6 +31,11 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
     -   Per-aircraft actions: Track, Issue Access, Delete
     -   Guest token management: view status, regenerate links, revoke access
     -   Copy-to-clipboard for sharing URLs
+-   **Guest Dashboard & Navigation (v0.44)**:
+    -   Multi-aircraft guest tokens display aircraft list at `/v/[token]`
+    -   Single-aircraft tokens auto-redirect to tracking page
+    -   Context-aware navigation: owners navigate to dashboard, multi-aircraft guests to guest dashboard, single-aircraft guests have no nav link
+    -   Cross-browser SHA-256 token hashing with Web Crypto API and js-sha256 fallback
 -   **Public Tracking**: `/track/[id]` page accepts tail number or hex code, auto-detects type
 -   **Real-time Tracking**: Displays aircraft position, flight paths (completed and remaining), and IFR waypoints on an **interactive Leaflet map**.
 -   **Map Visualizations**:
@@ -47,11 +56,14 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
 -   **Rate Limiting**: Implemented with a sliding window algorithm for API endpoints like `/api/random` and `/api/resolve`.
 -   **Email System**: Supports SMTP with a fallback to file transport in development.
 -   **Map Rendering**: Client-side only using dynamic imports to optimize server-side rendering.
--   **Guest Token System (v0.43)**:
+-   **Guest Token System (v0.43-v0.44)**:
     -   JSONB storage for multi-aircraft token associations with PostgreSQL containment queries
     -   Auto-revoke enforcement at validation and listing endpoints (6-month inactivity threshold)
     -   Token regeneration preserves settings while invalidating old token
     -   Status computation: Active, Revoked, Expired, Dormant (computed, not stored)
+    -   Client-side SHA-256 hashing (`lib/hash-client.ts`) with Web Crypto API primary + js-sha256 fallback for cross-browser compatibility
+    -   React Hooks compliance: all hooks called before early returns to prevent order violations
+    -   Guest dashboard with auto-redirect logic for single-aircraft tokens (100ms delay for router readiness)
 
 ## External Dependencies
 -   **FlightAware AeroAPI**: Primary source for all flight data including real-time tracking, origin/destination, and IFR flight plans.
@@ -65,6 +77,7 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
 -   **React**: UI library.
 -   **Leaflet & react-leaflet**: Interactive mapping library.
 -   **Tailwind CSS**: For styling.
+-   **js-sha256**: SHA-256 hashing library for cross-browser token validation fallback.
 
 ## Development Tools
 **INTERNAL USE ONLY - NOT END-USER FEATURES**
