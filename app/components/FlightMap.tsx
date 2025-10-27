@@ -2,7 +2,7 @@
 
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from "react-leaflet";
 import L, { LatLngExpression } from "leaflet";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import "leaflet/dist/leaflet.css";
 
 type Point = {
@@ -12,6 +12,12 @@ type Point = {
   alt_ft?: number;
   gs_kt?: number;
   hdg?: number;
+};
+
+type Waypoint = {
+  name: string;
+  lat: number;
+  lon: number;
 };
 
 // ---------- Icons (module-level cache) ----------
@@ -52,12 +58,10 @@ const getPlaneIcon = (heading?: number) => {
   
   const hdg = Math.round(heading ?? 0);
   
-  // Return cached icon if it exists
   if (_planeIconCache.has(hdg)) {
     return _planeIconCache.get(hdg)!;
   }
   
-  // Create and cache new icon
   const icon = new L.DivIcon({
     className: "",
     html: `<svg xmlns='http://www.w3.org/2000/svg' viewBox='-24 -24 48 48' width='48' height='48' style="transform: rotate(${hdg}deg);">
@@ -70,6 +74,55 @@ const getPlaneIcon = (heading?: number) => {
   
   _planeIconCache.set(hdg, icon);
   return icon;
+};
+
+// Airport label with leader line
+const getAirportLabel = (code: string, isOrigin: boolean) => {
+  if (typeof window === 'undefined') return null;
+  
+  const bgColor = isOrigin ? '#10b981' : '#ef4444';
+  
+  return new L.DivIcon({
+    className: "",
+    html: `<div style="
+      position: relative;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1f2937;
+      background: white;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 2px solid ${bgColor};
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      white-space: nowrap;
+      pointer-events: none;
+    ">${code}</div>`,
+    iconAnchor: [0, 0],
+  });
+};
+
+// Waypoint label
+const getWaypointLabel = (name: string) => {
+  if (typeof window === 'undefined') return null;
+  
+  return new L.DivIcon({
+    className: "",
+    html: `<div style="
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 11px;
+      font-weight: 500;
+      color: #1f2937;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 2px 6px;
+      border-radius: 3px;
+      border: 1px solid #9ca3af;
+      text-shadow: 0 0 3px white;
+      white-space: nowrap;
+      pointer-events: none;
+    ">${name}</div>`,
+    iconAnchor: [0, 12],
+  });
 };
 
 function FitBounds({ points, shouldFit, onFitComplete }: { 
@@ -92,6 +145,80 @@ function FitBounds({ points, shouldFit, onFitComplete }: {
   return null;
 }
 
+// Map controls for toggles
+function MapControls({ 
+  showAirportLabels, 
+  setShowAirportLabels, 
+  showWaypointNames, 
+  setShowWaypointNames 
+}: {
+  showAirportLabels: boolean;
+  setShowAirportLabels: (val: boolean) => void;
+  showWaypointNames: boolean;
+  setShowWaypointNames: (val: boolean) => void;
+}) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    const ControlsPanel = L.Control.extend({
+      onAdd: function() {
+        const div = L.DomUtil.create('div', 'leaflet-control-custom');
+        div.style.background = 'white';
+        div.style.padding = '8px 12px';
+        div.style.borderRadius = '4px';
+        div.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+        div.style.fontSize = '13px';
+        div.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        
+        div.innerHTML = `
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="toggle-airport-labels" ${showAirportLabels ? 'checked' : ''} 
+                     style="cursor: pointer;" data-testid="toggle-airport-labels" />
+              <span>Show airport labels</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="toggle-waypoint-names" ${showWaypointNames ? 'checked' : ''}
+                     style="cursor: pointer;" data-testid="toggle-waypoint-names" />
+              <span>Show waypoint names</span>
+            </label>
+          </div>
+        `;
+        
+        L.DomEvent.disableClickPropagation(div);
+        
+        const airportToggle = div.querySelector('#toggle-airport-labels') as HTMLInputElement;
+        const waypointToggle = div.querySelector('#toggle-waypoint-names') as HTMLInputElement;
+        
+        airportToggle?.addEventListener('change', (e) => {
+          const checked = (e.target as HTMLInputElement).checked;
+          setShowAirportLabels(checked);
+          localStorage.setItem('show-airport-labels', String(checked));
+        });
+        
+        waypointToggle?.addEventListener('change', (e) => {
+          const checked = (e.target as HTMLInputElement).checked;
+          setShowWaypointNames(checked);
+          localStorage.setItem('show-waypoint-names', String(checked));
+        });
+        
+        return div;
+      }
+    });
+    
+    const control = new ControlsPanel({ position: 'topright' });
+    control.addTo(map);
+    
+    return () => {
+      control.remove();
+    };
+  }, [map, showAirportLabels, setShowAirportLabels, showWaypointNames, setShowWaypointNames]);
+  
+  return null;
+}
+
 type FlightMapProps = {
   points: Point[];
   completedSegment: [number, number][];
@@ -99,6 +226,9 @@ type FlightMapProps = {
   origin: Point | null;
   destination: Point | null;
   current: Point | null;
+  originAirport?: string | null;
+  destinationAirport?: string | null;
+  waypoints?: Waypoint[] | null;
   shouldAutoFit: boolean;
   onFitComplete: () => void;
 };
@@ -110,9 +240,35 @@ export function FlightMap({
   origin,
   destination,
   current,
+  originAirport,
+  destinationAirport,
+  waypoints,
   shouldAutoFit,
   onFitComplete,
 }: FlightMapProps) {
+  const [showAirportLabels, setShowAirportLabels] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('show-airport-labels');
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
+  });
+  
+  const [showWaypointNames, setShowWaypointNames] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('show-waypoint-names');
+      return saved !== null ? saved === 'true' : false;
+    }
+    return false;
+  });
+  
+  // Calculate label positions with offset to avoid marker overlap
+  const originLabelPos = origin ? [origin.lat, origin.lon + 0.5] as [number, number] : null;
+  const destinationLabelPos = destination ? [destination.lat, destination.lon + 0.5] as [number, number] : null;
+  
+  // Select sparse waypoints (every 3rd waypoint to avoid clutter)
+  const sparseWaypoints = waypoints?.filter((_, idx) => idx % 3 === 0 && idx > 0 && idx < waypoints.length - 1) || [];
+  
   return (
     <MapContainer
       center={[39.5, -98.35]}
@@ -122,6 +278,12 @@ export function FlightMap({
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         attribution="&copy; OpenStreetMap"
+      />
+      <MapControls 
+        showAirportLabels={showAirportLabels} 
+        setShowAirportLabels={setShowAirportLabels}
+        showWaypointNames={showWaypointNames}
+        setShowWaypointNames={setShowWaypointNames}
       />
       {points.length > 0 && <FitBounds points={points} shouldFit={shouldAutoFit} onFitComplete={onFitComplete} />}
       {completedSegment.length > 1 && (
@@ -156,6 +318,47 @@ export function FlightMap({
           icon={getPlaneIcon(current.hdg)!}
         />
       )}
+      
+      {/* Airport labels with leader lines */}
+      {showAirportLabels && origin && originAirport && originLabelPos && getAirportLabel(originAirport, true) && (
+        <>
+          <Polyline
+            positions={[[origin.lat, origin.lon], originLabelPos]}
+            color="#10b981"
+            weight={1}
+            opacity={0.6}
+          />
+          <Marker
+            position={originLabelPos}
+            icon={getAirportLabel(originAirport, true)!}
+          />
+        </>
+      )}
+      {showAirportLabels && destination && destinationAirport && destinationLabelPos && getAirportLabel(destinationAirport, false) && (
+        <>
+          <Polyline
+            positions={[[destination.lat, destination.lon], destinationLabelPos]}
+            color="#ef4444"
+            weight={1}
+            opacity={0.6}
+          />
+          <Marker
+            position={destinationLabelPos}
+            icon={getAirportLabel(destinationAirport, false)!}
+          />
+        </>
+      )}
+      
+      {/* Waypoint names (sparse) */}
+      {showWaypointNames && sparseWaypoints.map((wp, idx) => (
+        getWaypointLabel(wp.name) && (
+          <Marker
+            key={`waypoint-${idx}-${wp.name}`}
+            position={[wp.lat, wp.lon]}
+            icon={getWaypointLabel(wp.name)!}
+          />
+        )
+      ))}
     </MapContainer>
   );
 }

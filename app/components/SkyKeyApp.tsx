@@ -49,6 +49,12 @@ type Track = {
 };
 type ApiError = { message?: string };
 
+class FetchError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = 'FetchError';
+  }
+}
 
 // ---------- Fetch layer ----------
 async function safeFetch(url: string) {
@@ -63,7 +69,7 @@ async function safeFetch(url: string) {
       const e: ApiError = await r.json();
       if (e?.message) msg = e.message;
     } catch {}
-    throw new Error(msg || `HTTP ${r.status}`);
+    throw new FetchError(msg || `HTTP ${r.status}`, r.status);
   }
   return r.json();
 }
@@ -177,7 +183,24 @@ function formatDuration(seconds: number | null | undefined): string {
   return `${hrs}h ${mins}m`;
 }
 
-const VERSION = "0.43";
+const VERSION = "0.45";
+
+// Get user-friendly error message based on status code
+function getErrorMessage(status: number | null, defaultMsg: string): string {
+  if (!status) return defaultMsg;
+  
+  switch (status) {
+    case 404:
+      return "No current flight found for this aircraft.";
+    case 429:
+      return "Tracking data temporarily unavailable. Please try again in a few minutes.";
+    case 502:
+    case 503:
+      return "Flight data service is momentarily unavailable.";
+    default:
+      return "We're having trouble loading flight details right now.";
+  }
+}
 
 // ---------- UI ----------
 interface SkyKeyAppProps {
@@ -190,6 +213,7 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
   const [tail, setTail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [track, setTrack] = useState<Track | null>(null);
   const [livePoints, setLivePoints] = useState<Point[]>([]);
   const [showVersion, setShowVersion] = useState(() => {
@@ -363,6 +387,7 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
     if (!h) return;
     setLoading(true);
     setError(null);
+    setErrorStatus(null);
     // Clear the last fitted hex to force re-fit even if same hex
     lastFittedHexRef.current = null;
     try {
@@ -370,7 +395,12 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
       setTrack(t);
     } catch (e: any) {
       setError(e.message || "Failed");
-      setTrack(null);
+      const status = e instanceof FetchError ? e.status : null;
+      setErrorStatus(status);
+      // Only clear track on 404 (not found) - preserve data for transient errors
+      if (status === 404) {
+        setTrack(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -380,6 +410,7 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
     if (!t) return;
     setLoading(true);
     setError(null);
+    setErrorStatus(null);
     // Clear the last fitted hex to force re-fit even if same hex
     lastFittedHexRef.current = null;
     try {
@@ -389,7 +420,12 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
       setTrack(tr);
     } catch (e: any) {
       setError(e.message || "Failed");
-      setTrack(null);
+      const status = e instanceof FetchError ? e.status : null;
+      setErrorStatus(status);
+      // Only clear track on 404 (not found) - preserve data for transient errors
+      if (status === 404) {
+        setTrack(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -415,6 +451,7 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
   const handleRandom = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setErrorStatus(null);
     // Clear the last fitted hex to force re-fit even if same hex
     lastFittedHexRef.current = null;
     // Clear both fields first
@@ -431,7 +468,12 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
       }
     } catch (e: any) {
       setError(e.message || "Failed");
-      setTrack(null);
+      const status = e instanceof FetchError ? e.status : null;
+      setErrorStatus(status);
+      // Only clear track on 404 (not found) - preserve data for transient errors
+      if (status === 404) {
+        setTrack(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -626,6 +668,35 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
       {/* Body */}
       <main className="grid md:grid-cols-[1fr_360px]">
         <section className="relative">
+          {/* Error Banner */}
+          {error && (
+            <div className="absolute top-0 left-0 right-0 z-[1000] bg-red-50 border-b-2 border-red-300 p-4 shadow-md">
+              <div className="flex items-start gap-3">
+                <div className="flex-1">
+                  <p className="font-semibold text-red-900">
+                    {getErrorMessage(errorStatus, error)}
+                  </p>
+                  {errorStatus && (
+                    <p className="text-xs text-red-700 mt-1">Error code: {errorStatus}</p>
+                  )}
+                </div>
+                <button
+                  onClick={() => {
+                    if (hex) {
+                      handleFetchByHex(hex);
+                    } else if (tail) {
+                      handleFetchByTail(tail);
+                    }
+                  }}
+                  className="px-3 py-1.5 rounded bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                  disabled={loading || (!hex && !tail)}
+                  data-testid="button-retry"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
           <FlightMap
             points={points}
             completedSegment={completedSegment}
@@ -633,6 +704,9 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
             origin={origin}
             destination={destination}
             current={current}
+            originAirport={track?.originAirport}
+            destinationAirport={track?.destinationAirport}
+            waypoints={track?.waypoints}
             shouldAutoFit={shouldAutoFit}
             onFitComplete={handleFitComplete}
           />

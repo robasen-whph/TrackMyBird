@@ -1,7 +1,7 @@
 # TrackMyBird - Flight Tracker Application
 
 ## Overview
-TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.44.
+TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.45.
 
 ## User Preferences
 I prefer detailed explanations.
@@ -38,10 +38,17 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
     -   Cross-browser SHA-256 token hashing with Web Crypto API and js-sha256 fallback
 -   **Public Tracking**: `/track/[id]` page accepts tail number or hex code, auto-detects type
 -   **Real-time Tracking**: Displays aircraft position, flight paths (completed and remaining), and IFR waypoints on an **interactive Leaflet map**.
--   **Map Visualizations**:
+-   **Map Visualizations (Enhanced v0.45)**:
     -   Dual-color track segments: Purple for completed path, gray dashed for remaining path.
     -   Green pin for origin, red pin for destination, and a rotating blue airplane icon for current position.
     -   Airport markers for origin and destination.
+    -   **Airport Labels with Leader Lines**: Origin/destination airport codes (ICAO/IATA) displayed with thin connecting lines, zoom-independent sizing
+    -   **IFR Waypoint Names**: Sparse waypoint labels along flight path (every 3rd waypoint) with text shadow for readability
+    -   **User Controls**: Toggle switches for airport labels (default: on) and waypoint names (default: off) with localStorage persistence
+-   **Error Handling (Enhanced v0.45)**:
+    -   Status-specific error messages: 404 (no flight found), 429 (rate limited), 502/503 (service unavailable)
+    -   Top-of-map error banner with retry functionality
+    -   Maintains last known data during transient errors
 -   **Flight Data**: Integration with external APIs for origin/destination data, IFR flight plans, and historical flight data.
 -   **N-number Conversion**: Uses a mathematical algorithm for instant and accurate bidirectional conversion between US N-numbers and ICAO hex codes, without external API calls. This enforces a strict **US-only restriction** for aircraft.
 -   **Performance & Reliability**: Features client-side polling for live updates, a provider cascade (`FlightAware` primary → `AviationStack` fallback) with in-memory caching for flight status, and robust rate limiting.
@@ -56,6 +63,12 @@ The application is built on **Next.js 15.5.6 with React 19.2.0** for the fronten
 -   **Rate Limiting**: Implemented with a sliding window algorithm for API endpoints like `/api/random` and `/api/resolve`.
 -   **Email System**: Supports SMTP with a fallback to file transport in development.
 -   **Map Rendering**: Client-side only using dynamic imports to optimize server-side rendering.
+-   **Map UI Enhancements (v0.45)**:
+    -   Leaflet custom controls for toggle switches positioned top-right
+    -   DivIcon-based labels for airports and waypoints with CSS styling
+    -   Leader line implementation using Leaflet Polylines
+    -   Smart label positioning with offset to prevent marker overlap
+    -   localStorage-backed preference persistence for display toggles
 -   **Guest Token System (v0.43-v0.44)**:
     -   JSONB storage for multi-aircraft token associations with PostgreSQL containment queries
     -   Auto-revoke enforcement at validation and listing endpoints (6-month inactivity threshold)
