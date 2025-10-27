@@ -222,13 +222,17 @@ async function fetchFromFlightAware(tail: string): Promise<Partial<FlightStatus>
       // Fetch waypoints
       try {
         const routeUrl = `https://aeroapi.flightaware.com/aeroapi/flights/${encodeURIComponent(flight.fa_flight_id)}/route`;
+        console.log('[FlightAware] Fetching route for', flight.fa_flight_id);
         const routeResponse = await fetch(routeUrl, {
           headers: { "x-apikey": apiKey },
           cache: "no-store",
         });
         
+        console.log('[FlightAware] Route response status:', routeResponse.status);
+        
         if (routeResponse.ok) {
           const routeData: any = await routeResponse.json();
+          console.log('[FlightAware] Route data:', JSON.stringify(routeData, null, 2));
           if (routeData.waypoints && Array.isArray(routeData.waypoints)) {
             result.waypoints = routeData.waypoints
               .filter((wp: any) => 
@@ -240,10 +244,14 @@ async function fetchFromFlightAware(tail: string): Promise<Partial<FlightStatus>
                 lat: wp.latitude,
                 lon: wp.longitude,
               }));
+            console.log('[FlightAware] Extracted waypoints:', result.waypoints.length);
+          } else {
+            console.log('[FlightAware] No waypoints in route data');
           }
         }
       } catch (e) {
         // Waypoints are optional, don't fail the whole request
+        console.warn('[FlightAware] Route fetch failed:', e);
       }
     }
     
