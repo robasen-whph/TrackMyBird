@@ -233,20 +233,21 @@ async function fetchFromFlightAware(tail: string): Promise<Partial<FlightStatus>
         if (routeResponse.ok) {
           const routeData: any = await routeResponse.json();
           console.log('[FlightAware] Route data:', JSON.stringify(routeData, null, 2));
-          if (routeData.waypoints && Array.isArray(routeData.waypoints)) {
-            result.waypoints = routeData.waypoints
-              .filter((wp: any) => 
-                Number.isFinite(wp.latitude) && 
-                Number.isFinite(wp.longitude)
+          // FlightAware route endpoint returns "fixes" not "waypoints"
+          if (routeData.fixes && Array.isArray(routeData.fixes)) {
+            result.waypoints = routeData.fixes
+              .filter((fix: any) => 
+                Number.isFinite(fix.latitude) && 
+                Number.isFinite(fix.longitude)
               )
-              .map((wp: any) => ({
-                name: wp.name || wp.ident || 'WAYPOINT',
-                lat: wp.latitude,
-                lon: wp.longitude,
+              .map((fix: any) => ({
+                name: fix.name || 'WAYPOINT',
+                lat: fix.latitude,
+                lon: fix.longitude,
               }));
-            console.log('[FlightAware] Extracted waypoints:', result.waypoints.length);
+            console.log('[FlightAware] Extracted waypoints from fixes:', result.waypoints.length);
           } else {
-            console.log('[FlightAware] No waypoints in route data');
+            console.log('[FlightAware] No fixes in route data');
           }
         }
       } catch (e) {
