@@ -180,11 +180,23 @@ async function fetchFromFlightAware(tail: string): Promise<Partial<FlightStatus>
       };
     }
     
-    if (flight.scheduled_out) {
-      result.firstSeen = new Date(flight.scheduled_out).getTime() / 1000;
+    // Prioritize actual times over scheduled times
+    // For departure: actual_off > actual_out > scheduled_out
+    const departureTime = flight.actual_off || flight.actual_out || flight.scheduled_out;
+    if (departureTime) {
+      result.firstSeen = new Date(departureTime).getTime() / 1000;
+      console.log(`[FlightAware] Departure time: ${departureTime} (${flight.actual_off ? 'actual_off' : flight.actual_out ? 'actual_out' : 'scheduled_out'})`);
+    } else {
+      console.log('[FlightAware] No departure time available');
     }
-    if (flight.scheduled_in) {
-      result.lastSeen = new Date(flight.scheduled_in).getTime() / 1000;
+    
+    // For arrival: actual_in > estimated_in > estimated_out > scheduled_in
+    const arrivalTime = flight.actual_in || flight.estimated_in || flight.estimated_out || flight.scheduled_in;
+    if (arrivalTime) {
+      result.lastSeen = new Date(arrivalTime).getTime() / 1000;
+      console.log(`[FlightAware] Arrival time: ${arrivalTime} (${flight.actual_in ? 'actual_in' : flight.estimated_in ? 'estimated_in' : flight.estimated_out ? 'estimated_out' : 'scheduled_in'})`);
+    } else {
+      console.log('[FlightAware] No arrival time available - flight may be en route without ETA');
     }
     
     // Fetch track data and waypoints if available
