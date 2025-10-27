@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Plane, Users, ExternalLink, Copy, Check } from 'lucide-react';
+import { Plane, Users, ExternalLink, Copy, Check, RefreshCw, Trash2 } from 'lucide-react';
 import { nNumberToIcao, icaoToNNumber } from '@/lib/nnumber-converter';
 
 interface Aircraft {
@@ -630,17 +630,19 @@ export default function DashboardPage() {
                             <button
                               onClick={() => handleRegenerateLink(token.id)}
                               disabled={regeneratingTokenId === token.id}
-                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50"
+                              className="p-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={regeneratingTokenId === token.id ? 'Regenerating...' : 'Generate a new sharing link (old link will stop working)'}
                               data-testid={`button-regenerate-${token.id}`}
                             >
-                              {regeneratingTokenId === token.id ? 'Regenerating...' : 'Regenerate Link'}
+                              <RefreshCw className={`h-4 w-4 ${regeneratingTokenId === token.id ? 'animate-spin' : ''}`} />
                             </button>
                             <button
                               onClick={() => handleRevokeToken(token.id)}
-                              className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                              className="p-2 text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                              title="Revoke access (permanently delete this guest link)"
                               data-testid={`button-revoke-${token.id}`}
                             >
-                              Revoke
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </td>
