@@ -81,10 +81,15 @@ const getAirportLabel = (code: string, isOrigin: boolean) => {
   if (typeof window === 'undefined') return null;
   
   const bgColor = isOrigin ? '#10b981' : '#ef4444';
+  // Estimate label width: ~9px per char at 14px font-weight 600, plus 16px padding + 4px border
+  const estimatedWidth = (code.length * 9) + 20;
+  const centerX = Math.round(estimatedWidth / 2);
   
   return new L.DivIcon({
     className: "",
     html: `<div style="
+      display: inline-block;
+      width: fit-content;
       position: relative;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 14px;
@@ -98,7 +103,7 @@ const getAirportLabel = (code: string, isOrigin: boolean) => {
       white-space: nowrap;
       pointer-events: none;
     ">${code}</div>`,
-    iconAnchor: [0, 13],
+    iconAnchor: [centerX, 13],
   });
 };
 
@@ -106,9 +111,15 @@ const getAirportLabel = (code: string, isOrigin: boolean) => {
 const getWaypointLabel = (name: string) => {
   if (typeof window === 'undefined') return null;
   
+  // Estimate label width: ~7px per char at 11px font-weight 500, plus 12px padding + 2px border
+  const estimatedWidth = (name.length * 7) + 14;
+  const centerX = Math.round(estimatedWidth / 2);
+  
   return new L.DivIcon({
     className: "",
     html: `<div style="
+      display: inline-block;
+      width: fit-content;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 11px;
       font-weight: 500;
@@ -121,7 +132,7 @@ const getWaypointLabel = (name: string) => {
       white-space: nowrap;
       pointer-events: none;
     ">${name}</div>`,
-    iconAnchor: [0, 9],
+    iconAnchor: [centerX, 9],
   });
 };
 
@@ -266,9 +277,9 @@ export function FlightMap({
     return false;
   });
   
-  // Calculate label positions with offset to avoid marker overlap
-  const originLabelPos = origin ? [origin.lat, origin.lon + 0.5] as [number, number] : null;
-  const destinationLabelPos = destination ? [destination.lat, destination.lon + 0.5] as [number, number] : null;
+  // Calculate label positions with offset to avoid marker overlap (~1 mile)
+  const originLabelPos = origin ? [origin.lat, origin.lon + 0.015] as [number, number] : null;
+  const destinationLabelPos = destination ? [destination.lat, destination.lon + 0.015] as [number, number] : null;
   
   // Select sparse waypoints (every 3rd waypoint to avoid clutter)
   const sparseWaypoints = waypoints?.filter((_, idx) => idx % 3 === 0 && idx > 0 && idx < waypoints.length - 1) || [];
@@ -292,7 +303,7 @@ export function FlightMap({
       {points.length > 0 && <FitBounds points={points} shouldFit={shouldAutoFit} onFitComplete={onFitComplete} />}
       {completedSegment.length > 1 && (
         <Polyline
-          key={`completed-${completedSegment.length}-${completedSegment[0]?.[0]}-${completedSegment[completedSegment.length-1]?.[0]}`}
+          key={`completed-${completedSegment.length}-${completedSegment[0]?.[0]?.toFixed(4)}-${completedSegment[0]?.[1]?.toFixed(4)}-${completedSegment[completedSegment.length-1]?.[0]?.toFixed(4)}-${completedSegment[completedSegment.length-1]?.[1]?.toFixed(4)}`}
           positions={completedSegment}
           color="#a855f7"
           weight={4}
@@ -301,7 +312,7 @@ export function FlightMap({
       )}
       {remainingSegment.length > 1 && (
         <Polyline
-          key={`remaining-${remainingSegment.length}-${remainingSegment[0]?.[0]}-${remainingSegment[remainingSegment.length-1]?.[0]}`}
+          key={`remaining-${remainingSegment.length}-${remainingSegment[0]?.[0]?.toFixed(4)}-${remainingSegment[0]?.[1]?.toFixed(4)}-${remainingSegment[remainingSegment.length-1]?.[0]?.toFixed(4)}-${remainingSegment[remainingSegment.length-1]?.[1]?.toFixed(4)}`}
           positions={remainingSegment}
           color="#94a3b8"
           weight={4}
