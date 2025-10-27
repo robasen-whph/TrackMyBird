@@ -133,14 +133,25 @@ async function fetchFromFlightAware(tail: string): Promise<Partial<FlightStatus>
     
     const data: any = await response.json();
     
-    console.log('[FlightAware] Raw response:', JSON.stringify(data, null, 2));
-    
     if (!data.flights || data.flights.length === 0) {
       console.log('[FlightAware] No flights array or empty flights array');
       return null;
     }
     
-    const flight = data.flights[0];
+    // Find the active flight (En Route or recently completed)
+    // Priority: En Route > Scheduled (with actual_off) > most recent
+    const activeFlight = data.flights.find((f: any) => 
+      f.status && (
+        f.status.includes('En Route') || 
+        f.status.includes('Enroute')
+      )
+    ) || data.flights.find((f: any) => 
+      f.actual_off && !f.actual_on  // Departed but not arrived
+    ) || data.flights[0];  // Fallback to first flight
+    
+    const flight = activeFlight;
+    console.log(`[FlightAware] Selected flight: ${flight.ident} (${flight.fa_flight_id}) - Status: ${flight.status}`);
+    
     const result: Partial<FlightStatus> = {};
     
     if (flight.origin) {
@@ -181,17 +192,13 @@ async function fetchFromFlightAware(tail: string): Promise<Partial<FlightStatus>
       // Fetch track points
       try {
         const trackUrl = `https://aeroapi.flightaware.com/aeroapi/flights/${encodeURIComponent(flight.fa_flight_id)}/track`;
-        console.log(`[FlightAware] Fetching track from: ${trackUrl}`);
         const trackResponse = await fetch(trackUrl, {
           headers: { "x-apikey": apiKey },
           cache: "no-store",
         });
         
-        console.log(`[FlightAware] Track response status: ${trackResponse.status}`);
-        
         if (trackResponse.ok) {
           const trackData: any = await trackResponse.json();
-          console.log(`[FlightAware] Track data:`, JSON.stringify(trackData, null, 2));
           if (trackData.positions && Array.isArray(trackData.positions)) {
             result.points = trackData.positions
               .filter((pos: any) => 
@@ -205,16 +212,11 @@ async function fetchFromFlightAware(tail: string): Promise<Partial<FlightStatus>
                 alt_ft: typeof pos.altitude === "number" ? Math.round(pos.altitude) : undefined,
                 hdg: typeof pos.heading === "number" ? Math.round(pos.heading) : undefined,
               }));
-            console.log(`[FlightAware] Parsed ${result.points.length} track points`);
-          } else {
-            console.log(`[FlightAware] No positions array in track data`);
           }
-        } else {
-          console.log(`[FlightAware] Track request failed with status ${trackResponse.status}`);
         }
       } catch (e) {
         // Track data is optional for now, don't fail the whole request
-        console.error('[FlightAware] Track fetch failed:', e);
+        console.warn('[FlightAware] Track fetch failed:', e);
       }
       
       // Fetch waypoints
