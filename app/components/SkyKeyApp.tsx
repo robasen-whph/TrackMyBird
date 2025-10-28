@@ -562,7 +562,7 @@ export function SkyKeyApp({ initialId, guestToken }: SkyKeyAppProps = {}) {
         console.log(`[POLL] Update unavailable for ${hex}: ${errorMsg}`);
         // Don't set error state for polling failures to avoid alarming the user
       }
-    }, 5000); // 30 seconds -> 5 seconds for testing
+    }, 30000); // 30 seconds
 
     return () => clearInterval(pollInterval);
   }, [hex]);

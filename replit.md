@@ -24,7 +24,7 @@ The application is built with **Next.js 15.5.6 (App Router)** and **React 19.2.0
 -   **Error Handling**: Provides status-specific error messages (404, 429, 502/503), a top-of-map error banner with retry functionality, and maintains last known data during transient errors.
 -   **Flight Data**: Integrates with external APIs for origin/destination, IFR flight plans, and historical data.
 -   **N-number Conversion**: Utilizes a mathematical algorithm for instant, accurate bidirectional conversion between US N-numbers and ICAO hex codes, enforcing a **US-only restriction**.
--   **Performance & Reliability**: Achieved through client-side polling for live updates, a provider cascade (`FlightAware` primary → `AviationStack` fallback) with in-memory caching, and robust rate limiting.
+-   **Performance & Reliability**: Achieved through client-side polling for live updates (30-second interval), a provider cascade (`FlightAware` primary → `AviationStack` fallback) with in-memory caching, and robust rate limiting. Future consideration: shifting to data providers with metered polling limits.
 -   **Security**: All tokens (session, verification, guest) use 256-bit entropy and are SHA-256 hashed at rest. Guest tokens auto-revoke on aircraft deletion and inactivity. Authentication and ownership validation are enforced on all protected endpoints. Password reset functionality includes token invalidation, single-use tokens, and a 1-hour expiration.
 
 **Technical Implementations:**
