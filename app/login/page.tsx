@@ -149,6 +149,13 @@ export default function LoginPage() {
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Remember me</span>
               </label>
+              <Link 
+                href="/forgot-password" 
+                className="text-sm text-purple-600 dark:text-purple-400 hover:underline font-medium"
+                data-testid="link-forgot-password"
+              >
+                Forgot password?
+              </Link>
             </div>
 
             <button

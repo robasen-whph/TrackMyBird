@@ -33,6 +33,16 @@ export const emailVerifications = pgTable('email_verifications', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Password reset tokens table
+export const passwordResets = pgTable('password_resets', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  used: boolean('used').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
 // Aircraft table
 export const aircraft = pgTable('aircraft', {
   id: serial('id').primaryKey(),
@@ -77,6 +87,13 @@ export const emailVerificationsRelations = relations(emailVerifications, ({ one 
   }),
 }));
 
+export const passwordResetsRelations = relations(passwordResets, ({ one }) => ({
+  user: one(users, {
+    fields: [passwordResets.userId],
+    references: [users.id],
+  }),
+}));
+
 export const aircraftRelations = relations(aircraft, ({ one }) => ({
   owner: one(users, {
     fields: [aircraft.ownerUserId],
@@ -106,3 +123,6 @@ export type InsertAircraft = typeof aircraft.$inferInsert;
 
 export type GuestToken = typeof guestTokens.$inferSelect;
 export type InsertGuestToken = typeof guestTokens.$inferInsert;
+
+export type PasswordReset = typeof passwordResets.$inferSelect;
+export type InsertPasswordReset = typeof passwordResets.$inferInsert;

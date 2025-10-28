@@ -120,3 +120,24 @@ export async function sendVerificationEmail(email: string, token: string, baseUr
     `,
   });
 }
+
+export async function sendPasswordResetEmail(email: string, token: string, baseUrl?: string) {
+  // Use provided baseUrl (from request) or fall back to appConfig.url
+  const base = baseUrl || appConfig.url;
+  const resetUrl = `${base}/reset-password?token=${token}`;
+  
+  await sendEmail({
+    to: email,
+    subject: 'Reset your TrackMyBird password',
+    text: `You requested to reset your password.\n\nClick this link to reset your password:\n\n${resetUrl}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, you can safely ignore this email.`,
+    html: `
+      <h2>Reset your password</h2>
+      <p>You requested to reset your password. Click the link below to set a new password:</p>
+      <p><a href="${resetUrl}" style="display: inline-block; padding: 12px 24px; background-color: #4f46e5; color: white; text-decoration: none; border-radius: 6px;">Reset Password</a></p>
+      <p>Or copy and paste this URL into your browser:</p>
+      <p>${resetUrl}</p>
+      <p style="color: #6b7280; font-size: 14px;">This link will expire in 1 hour.</p>
+      <p style="color: #6b7280; font-size: 14px;">If you didn't request this, you can safely ignore this email. Your password will not be changed.</p>
+    `,
+  });
+}

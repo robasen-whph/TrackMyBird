@@ -1,8 +1,5 @@
-'use client';
-import dynamic from 'next/dynamic';
-
-const SkyKeyApp = dynamic(() => import('./components/SkyKeyApp'), { ssr: false });
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <SkyKeyApp />;
+  redirect('/login');
 }
