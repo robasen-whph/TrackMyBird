@@ -6,3 +6,6 @@ out/
 .vercel/
 dist/
 .turbo/
+
+# Deployment files with secrets (template is safe to commit)
+pass-to-vercel.env
