@@ -1,47 +1,7 @@
 # TrackMyBird - Flight Tracker Application
 
 ## Overview
-TrackMyBird is a real-time flight tracking application for US-registered aircraft (N-numbers). Its primary purpose is to enable US aircraft owners to share tracking information with authorized individuals, bypassing FAA LADD (Limiting Aircraft Data Displayed) privacy blocking. The project provides a secure platform for tracking flights with rich interactive map visualizations, guest access sharing, and detailed flight information. Currently at version 0.48.
-
-## Recent Changes
-
-### v0.48 (Current Release)
-**QA Hardening - Accessibility & Mobile Improvements:**
-1. **Touch Targets**: All main action icon buttons now meet 44×44px minimum for mobile accessibility (Track, Issue Access, Delete, Regenerate, Revoke)
-2. **Accessibility Labels**: Added descriptive aria-label attributes to all icon buttons for screen reader support (e.g., "Track aircraft N12345", "Revoke guest access for John Doe")
-3. **Keyboard Focus**: Implemented visible purple focus rings (:focus-visible) for keyboard navigation across all interactive elements
-4. **Cache Invalidation**: Verified existing state management properly handles immediate UI updates on revoke (instant removal) and refetch on mutations
-
-**Critical Bug Fix - Duplicate Gray Dashed Paths (Final Fix):**
-- **Root Cause**: React-Leaflet was caching multiple Leaflet layer instances due to flawed key-based reconciliation. The previous key strategy (v0.46) used only first/last coordinates rounded to 4 decimals, causing key collisions and stale layer accumulation.
-- **Solution**: Replaced declarative `<Polyline key={...}>` components with imperative `ManagedPolyline` component using `useRef` and direct Leaflet API calls via `setLatLngs()` in `useEffect`. This ensures exactly one Leaflet layer per path segment.
-- **Benefits**: Eliminates duplicate paths, prevents memory leaks, guarantees proper cleanup on unmount/updates.
-
-**Technical Implementation**: Touch targets use `.icon-btn` CSS class scoped to main table actions only (not chip-embedded buttons) to prevent layout regressions while maintaining accessibility.
-
-### v0.47
-**Critical Map Rendering Fixes:**
-1. **Fixed Label Distance from Markers**: Reduced label offset from 0.5° (~30+ miles) to 0.015° (~1 mile), bringing airport/waypoint labels to their proper positions near markers
-2. **Fixed Label Box Sizing**: Added `display: inline-block` and `width: fit-content` to DivIcon labels, preventing boxes from expanding to full container width (1265px → ~60px for airport labels)
-3. **Fixed Label Text Centering**: Dynamic iconAnchor calculation based on estimated text width ensures label boxes center on text instead of left-aligning (airport: `(length * 9 + 20) / 2`; waypoint: `(length * 7 + 14) / 2`)
-
-**Testing**: All three fixes verified with end-to-end Playwright testing - labels appear 8-24px from markers, boxes properly sized (~60px airport, ~46px waypoint), and only single purple/grey path pair displays with no duplicates.
-
-### v0.46
-**Bug Fixes & Enhancements:**
-1. **Fixed Map Label Positioning**: Airport labels now properly centered with iconAnchor [0,13]; waypoint labels with [0,9] - eliminates floating/misaligned labels
-2. **Fixed Duplicate Gray Paths**: Polyline components now use segment-boundary keys to force proper React-Leaflet re-rendering, preventing accumulation of stale dashed paths
-3. **Enhanced Guest Dashboard**: 
-   - Guest tokens now display individual aircraft tail numbers as clickable tracking links instead of just counts
-   - Added per-aircraft removal with X buttons on multi-aircraft tokens
-   - Created `/api/invites/[id]/remove-aircraft` endpoint for granular aircraft removal
-   - Prevents removing last aircraft from token (requires full revoke instead)
-4. **Fixed Guest Access Error Display**: 
-   - Revoked/expired guest tokens now show prominent "Access Denied" banner instead of generic "404 No flight found" message
-   - Added proper error state handling with clear user messaging
-   - Guest access errors take precedence over flight tracking errors
-
-**Testing**: All fixes verified with comprehensive end-to-end testing including authentication flow, multi-aircraft tokens, per-aircraft removal, and revocation handling.
+TrackMyBird is a real-time flight tracking application designed for US-registered aircraft (N-numbers). It empowers US aircraft owners to securely share flight tracking information with authorized individuals, bypassing FAA LADD restrictions. The platform offers interactive map visualizations, secure guest access sharing, and detailed flight information. Its core purpose is to provide a secure and user-friendly solution for private aircraft tracking and data sharing.
 
 ## User Preferences
 I prefer detailed explanations.
@@ -51,136 +11,37 @@ I prefer simple language.
 I like functional programming.
 
 ## System Architecture
-The application is built on **Next.js 15.5.6 with React 19.2.0** for the frontend, using the **App Router**. Styling is handled with **Tailwind CSS v4**. Data persistence uses **PostgreSQL with Drizzle ORM**. User authentication is session-based with email verification and HTTP-only cookies.
+The application is built with **Next.js 15.5.6 (App Router)** and **React 19.2.0** for the frontend, styled using **Tailwind CSS v4**. **PostgreSQL** with **Drizzle ORM** handles data persistence. User authentication is session-based, utilizing email verification and HTTP-only cookies.
 
 **Key Features:**
--   **User Authentication & Aircraft Management (Enhanced v0.44)**: 
-    -   Secure signup/login with email verification
-    -   Flexible aircraft entry: accepts EITHER tail number OR hex code (not both required)
-    -   Auto-calculation of missing field using N-number converter
-    -   Validation for vanity tail numbers with helpful error messages
--   **Guest Access Sharing (v0.43, Enhanced v0.45)**: 
-    -   Create shareable tracking links with 256-bit tokens (SHA-256 hashed at rest)
-    -   Two duration types: 24-hour temporary or permanent (with 6-month inactivity auto-revoke)
-    -   Guest tokens support multiple aircraft, optional nicknames, and regenerate-on-demand
-    -   **Smart aircraft deletion**: Single-aircraft tokens revoked when aircraft deleted; multi-aircraft tokens keep access to remaining aircraft
-    -   Auto-revoke after 6 months of inactivity (future: email reminder before revocation)
-    -   Public guest viewer page showing aircraft list with direct tracking links
--   **Dashboard UX (v0.43, Enhanced v0.46)**:
-    -   Tabbed interface: "My Aircraft" and "Guest Access" tabs
-    -   Clickable aircraft table rows (tail/hex → public tracking page)
-    -   Per-aircraft actions: Track, Issue Access, Delete
-    -   **Enhanced Guest Token Display**: Shows actual tail numbers as clickable tracking links instead of just counts
-    -   **Per-Aircraft Removal**: X buttons on multi-aircraft tokens allow removing individual aircraft without revoking entire token
-    -   Guest token management: view status, regenerate links, revoke access
-    -   Copy-to-clipboard for sharing URLs
--   **Guest Dashboard & Navigation (v0.44)**:
-    -   Multi-aircraft guest tokens display aircraft list at `/v/[token]`
-    -   Single-aircraft tokens auto-redirect to tracking page
-    -   Context-aware navigation: owners navigate to dashboard, multi-aircraft guests to guest dashboard, single-aircraft guests have no nav link
-    -   Cross-browser SHA-256 token hashing with Web Crypto API and js-sha256 fallback
--   **Public Tracking**: `/track/[id]` page accepts tail number or hex code, auto-detects type
--   **Real-time Tracking**: Displays aircraft position, flight paths (completed and remaining), and IFR waypoints on an **interactive Leaflet map**.
--   **Map Visualizations (Enhanced v0.45)**:
-    -   Dual-color track segments: Purple for completed path, gray dashed for remaining path.
-    -   Green pin for origin, red pin for destination, and a rotating blue airplane icon for current position.
-    -   Airport markers for origin and destination.
-    -   **Airport Labels with Leader Lines**: Origin/destination airport codes (ICAO/IATA) displayed with thin connecting lines, zoom-independent sizing
-    -   **IFR Waypoint Names**: Sparse waypoint labels along flight path (every 3rd waypoint) with text shadow for readability
-    -   **User Controls**: Toggle switches for airport labels (default: on) and waypoint names (default: off) with localStorage persistence
--   **Error Handling (Enhanced v0.45)**:
-    -   Status-specific error messages: 404 (no flight found), 429 (rate limited), 502/503 (service unavailable)
-    -   Top-of-map error banner with retry functionality
-    -   Maintains last known data during transient errors
--   **Flight Data**: Integration with external APIs for origin/destination data, IFR flight plans, and historical flight data.
--   **N-number Conversion**: Uses a mathematical algorithm for instant and accurate bidirectional conversion between US N-numbers and ICAO hex codes, without external API calls. This enforces a strict **US-only restriction** for aircraft.
--   **Performance & Reliability**: Features client-side polling for live updates, a provider cascade (`FlightAware` primary → `AviationStack` fallback) with in-memory caching for flight status, and robust rate limiting.
--   **Security**: 
-    -   All tokens (session, verification, guest) use 256-bit entropy, SHA-256 hashed at rest
-    -   Guest tokens auto-revoke on aircraft deletion and after 6 months of inactivity
-    -   Proxy-aware URL generation for deployment environments
-    -   Authentication and ownership validation on all protected endpoints
+-   **User Authentication & Aircraft Management**: Secure signup/login with email verification, flexible aircraft entry (tail number or hex code), and auto-conversion between the two.
+-   **Guest Access Sharing**: Enables creation of shareable tracking links with 256-bit tokens (SHA-256 hashed). Supports temporary (24-hour) or permanent access, multi-aircraft tokens, optional nicknames, and on-demand regeneration. Includes smart deletion handling where deleting an aircraft either revokes single-aircraft tokens or removes the aircraft from multi-aircraft tokens. Auto-revokes inactive permanent tokens after 6 months.
+-   **Dashboard UX**: Provides a tabbed interface for "My Aircraft" and "Guest Access." Features clickable aircraft table rows, per-aircraft actions (Track, Issue Access, Delete), and enhanced guest token displays with clickable tail numbers and per-aircraft removal.
+-   **Guest Dashboard & Navigation**: Multi-aircraft guest tokens display an aircraft list, while single-aircraft tokens auto-redirect to the tracking page. Navigation is context-aware for owners and guests.
+-   **Public Tracking**: A dedicated page `/track/[id]` accepts either tail number or hex code for public flight tracking.
+-   **Real-time Tracking**: Displays live aircraft position, dual-color flight paths (completed and remaining), and IFR waypoints on an interactive **Leaflet map**.
+-   **Map Visualizations**: Features dual-color track segments (purple for completed, gray dashed for remaining), origin/destination markers, a rotating blue airplane icon for current position, and airport labels with leader lines. Includes sparse IFR waypoint labels and user-toggleable display controls for labels and waypoints with localStorage persistence.
+-   **Error Handling**: Provides status-specific error messages (404, 429, 502/503), a top-of-map error banner with retry functionality, and maintains last known data during transient errors.
+-   **Flight Data**: Integrates with external APIs for origin/destination, IFR flight plans, and historical data.
+-   **N-number Conversion**: Utilizes a mathematical algorithm for instant, accurate bidirectional conversion between US N-numbers and ICAO hex codes, enforcing a **US-only restriction**.
+-   **Performance & Reliability**: Achieved through client-side polling for live updates, a provider cascade (`FlightAware` primary → `AviationStack` fallback) with in-memory caching, and robust rate limiting.
+-   **Security**: All tokens (session, verification, guest) use 256-bit entropy and are SHA-256 hashed at rest. Guest tokens auto-revoke on aircraft deletion and inactivity. Authentication and ownership validation are enforced on all protected endpoints. Password reset functionality includes token invalidation, single-use tokens, and a 1-hour expiration.
 
 **Technical Implementations:**
--   **Configuration**: Separated into sensitive secrets (managed by Replit Secrets) and public configuration with sensible defaults.
--   **Rate Limiting**: Implemented with a sliding window algorithm for API endpoints like `/api/random` and `/api/resolve`.
--   **Email System**: Supports SMTP with a fallback to file transport in development.
--   **Map Rendering**: Client-side only using dynamic imports to optimize server-side rendering.
--   **Map UI Enhancements (v0.45, Bug Fixes v0.46)**:
-    -   Leaflet custom controls for toggle switches positioned top-right
-    -   DivIcon-based labels for airports and waypoints with CSS styling
-    -   **Fixed Label Positioning**: iconAnchor set to [0,13] for airports and [0,9] for waypoints to properly center labels vertically
-    -   Leader line implementation using Leaflet Polylines
-    -   Smart label positioning with offset to prevent marker overlap
-    -   **Fixed Path Rendering**: Polyline keys based on segment boundaries force proper React-Leaflet re-rendering, eliminating duplicate gray dashed paths
-    -   localStorage-backed preference persistence for display toggles
--   **Guest Token System (v0.43-v0.46)**:
-    -   JSONB storage for multi-aircraft token associations with PostgreSQL containment queries
-    -   Auto-revoke enforcement at validation and listing endpoints (6-month inactivity threshold)
-    -   **Smart deletion handling**: Aircraft deletion removes aircraft ID from multi-aircraft tokens, only revokes single-aircraft tokens
-    -   **Per-aircraft removal**: `/api/invites/[id]/remove-aircraft` endpoint allows removing individual aircraft from multi-aircraft tokens
-    -   Token regeneration preserves settings while invalidating old token
-    -   Status computation: Active, Revoked, Expired, Dormant (computed, not stored)
-    -   Client-side SHA-256 hashing (`lib/hash-client.ts`) with Web Crypto API primary + js-sha256 fallback for cross-browser compatibility
-    -   React Hooks compliance: all hooks called before early returns to prevent order violations
-    -   Guest dashboard with auto-redirect logic for single-aircraft tokens (100ms delay for router readiness)
+-   **Configuration**: Separates sensitive secrets (Replit Secrets) from public configuration.
+-   **Rate Limiting**: Implemented with a sliding window algorithm for API endpoints.
+-   **Email System**: Supports SMTP with development fallback to file transport.
+-   **Map Rendering**: Client-side only using dynamic imports for SSR optimization. Map UI enhancements include custom Leaflet controls, DivIcon-based labels with precise positioning, leader lines, and smart label placement. Duplicate dashed paths are prevented by using segment-boundary keys for `Polyline` components or imperative `ManagedPolyline` components.
+-   **Guest Token System**: Uses JSONB storage for multi-aircraft associations. Auto-revocation is enforced at validation. Smart deletion handling and per-aircraft removal are supported. Client-side SHA-256 hashing uses Web Crypto API with a `js-sha256` fallback.
 
 ## External Dependencies
--   **FlightAware AeroAPI**: Primary source for all flight data including real-time tracking, origin/destination, and IFR flight plans.
-    -   Route endpoint returns `fixes` array (not `waypoints`) containing IFR flight plan waypoints with coordinates
+-   **FlightAware AeroAPI**: Primary source for real-time flight data, origin/destination, and IFR flight plans.
 -   **AviationStack API**: Fallback provider for origin/destination metadata.
 -   **airport-data.com API**: Provides airport coordinates and details.
--   **OpenSky Network API**: Used only for development tooling (not production features).
--   **PostgreSQL**: Relational database for storing user, session, aircraft, and guest token data (5 tables).
--   **Drizzle ORM**: Used for database interactions.
+-   **PostgreSQL**: Relational database for all application data.
+-   **Drizzle ORM**: For database interactions.
 -   **Next.js**: Frontend framework.
 -   **React**: UI library.
 -   **Leaflet & react-leaflet**: Interactive mapping library.
 -   **Tailwind CSS**: For styling.
--   **js-sha256**: SHA-256 hashing library for cross-browser token validation fallback.
-
-## Development Tools
-**INTERNAL USE ONLY - NOT END-USER FEATURES**
-
-### Random Aircraft Finder (`scripts/find-random-aircraft.ts`)
-A development utility to quickly find random US-registered aircraft currently in flight for testing purposes.
-
-**Usage:**
-```bash
-npx tsx scripts/find-random-aircraft.ts
-```
-
-**How it works:**
-1. Queries OpenSky Network API for aircraft within ~1000 mile radius of central USA (39.5°N, -98.35°W)
-2. Filters for US-registered aircraft (ICAO24 codes starting with 'A')
-3. Randomly selects one aircraft
-4. Converts ICAO24 hex code to N-number using `lib/nnumber-converter.ts`
-5. Outputs tracking URLs for immediate testing
-
-**Requirements:**
-- `OPENSKY_CLIENT_ID` and `OPENSKY_CLIENT_SECRET` environment variables
-- OAuth2 credentials from https://opensky-network.org/
-
-**Error Handling:**
-- Returns distinctive error if no aircraft found (extremely unlikely)
-- Includes detailed error messages for authentication failures
-
-**Example Output:**
-```
-✅ Found 2433 US-registered aircraft in flight
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🛩️  RANDOM AIRCRAFT SELECTED
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-N-Number:  N37536
-ICAO24:    A4493E
-Callsign:  UAL1644
-Position:  27.8822°N, 85.4270°W
-Altitude:  10973 meters (36000 feet)
-Speed:     384 knots
-Heading:   266°
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-🔗 Track this aircraft: http://localhost:5000/track/N37536
-🔗 Or use hex code:     http://localhost:5000/track/A4493E
-```
+-   **js-sha256**: SHA-256 hashing library (cross-browser fallback).
