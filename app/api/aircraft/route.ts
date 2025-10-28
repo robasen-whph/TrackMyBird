@@ -5,6 +5,8 @@ import { requireVerified } from '@/lib/session';
 import { eq, and, desc } from 'drizzle-orm';
 import { isValidNNumber, nNumberToIcao } from '@/lib/nnumber-converter';
 
+export const runtime = 'edge';
+
 // Validate ICAO hex code (6 hex characters, US range A00001-ADF7C7)
 function isValidUSIcao(hex: string): boolean {
   if (!/^[A-Fa-f0-9]{6}$/.test(hex)) {
