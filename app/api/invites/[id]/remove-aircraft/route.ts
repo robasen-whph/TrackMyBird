@@ -4,6 +4,8 @@ import { guestTokens } from '@/db/schema';
 import { requireAuth } from '@/lib/session';
 import { eq, and } from 'drizzle-orm';
 
+export const runtime = 'edge';
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

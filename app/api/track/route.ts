@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getFlightStatus } from "@/lib/statusAdapter";
 
+export const runtime = 'edge';
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const hex = searchParams.get("hex")?.toLowerCase() || "";

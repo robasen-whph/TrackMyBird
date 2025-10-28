@@ -4,6 +4,8 @@ import { aircraft, guestTokens } from '@/db/schema';
 import { requireVerified } from '@/lib/session';
 import { eq, and, sql } from 'drizzle-orm';
 
+export const runtime = 'edge';
+
 // DELETE /api/aircraft/[id] - Delete aircraft
 export async function DELETE(
   request: Request,

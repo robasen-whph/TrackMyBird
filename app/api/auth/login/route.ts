@@ -5,6 +5,8 @@ import { verifyPassword } from '@/lib/auth';
 import { createSession } from '@/lib/session';
 import { eq } from 'drizzle-orm';
 
+export const runtime = 'edge';
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();

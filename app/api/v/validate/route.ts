@@ -3,6 +3,8 @@ import { db } from '@/db';
 import { guestTokens, aircraft } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 
+export const runtime = 'edge';
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
