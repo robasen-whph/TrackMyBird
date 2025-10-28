@@ -4,6 +4,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
+export const runtime = 'edge';
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');

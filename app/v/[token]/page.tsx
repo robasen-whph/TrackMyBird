@@ -6,6 +6,8 @@ import { hashTokenClient } from '@/lib/hash-client';
 import Link from 'next/link';
 import { AlertCircle, Plane } from 'lucide-react';
 
+export const runtime = 'edge';
+
 interface Aircraft {
   id: number;
   tail: string;

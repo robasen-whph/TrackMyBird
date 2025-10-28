@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Plane, Users, Copy, Check, RefreshCw, Trash2, Radar, Key } from 'lucide-react';
 import { nNumberToIcao, icaoToNNumber } from '@/lib/nnumber-converter';
 
+export const runtime = 'edge';
+
 interface Aircraft {
   id: number;
   tail: string;

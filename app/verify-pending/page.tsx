@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
+export const runtime = 'edge';
+
 export default function VerifyPendingPage() {
   const [resending, setResending] = useState(false);
   const [message, setMessage] = useState('');
