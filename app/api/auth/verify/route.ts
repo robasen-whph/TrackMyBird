@@ -17,7 +17,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const tokenHash = await hashToken(token);
+    const tokenHash = hashToken(token);
 
     // Find verification record
     const [verification] = await db

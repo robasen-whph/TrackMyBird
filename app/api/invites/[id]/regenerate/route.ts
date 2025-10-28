@@ -42,7 +42,7 @@ export async function POST(
 
     // Generate new token and hash
     const newToken = generateToken();
-    const newTokenHash = await hashToken(newToken);
+    const newTokenHash = hashToken(newToken);
 
     // Update with new token hash
     await db

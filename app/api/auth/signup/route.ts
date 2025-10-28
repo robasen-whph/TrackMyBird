@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
     // Generate verification token
     const token = generateToken();
-    const tokenHash = await hashToken(token);
+    const tokenHash = hashToken(token);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Create verification record

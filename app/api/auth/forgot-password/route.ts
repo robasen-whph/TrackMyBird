@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
     // Generate reset token (256-bit)
     const token = generateToken();
-    const tokenHash = await hashToken(token);
+    const tokenHash = hashToken(token);
 
     // Create password reset record (expires in 1 hour)
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);

@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     // Hash token to lookup
-    const tokenHash = await hashToken(token);
+    const tokenHash = hashToken(token);
 
     // Find valid reset token
     const [resetRecord] = await db

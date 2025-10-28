@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { generateRandomToken, sha256 } from './crypto';
+import crypto from 'crypto';
 
 const SALT_ROUNDS = 10;
 
@@ -21,14 +21,14 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
  * Generate a random token for email verification
  */
 export function generateToken(): string {
-  return generateRandomToken();
+  return crypto.randomBytes(32).toString('hex');
 }
 
 /**
  * Hash a token for storage
  */
-export async function hashToken(token: string): Promise<string> {
-  return await sha256(token);
+export function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 /**
