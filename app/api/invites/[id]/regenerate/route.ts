@@ -5,8 +5,6 @@ import { requireAuth } from '@/lib/session';
 import { generateToken, hashToken } from '@/lib/auth';
 import { eq, and } from 'drizzle-orm';
 
-export const runtime = 'edge';
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
