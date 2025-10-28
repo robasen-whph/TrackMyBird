@@ -40,7 +40,7 @@ export async function POST(request: Request) {
 
     // Generate token and hash
     const token = generateToken();
-    const tokenHash = hashToken(token);
+    const tokenHash = await hashToken(token);
 
     // Calculate expiry (24h or permanent)
     let expiresAt: Date | null = null;
