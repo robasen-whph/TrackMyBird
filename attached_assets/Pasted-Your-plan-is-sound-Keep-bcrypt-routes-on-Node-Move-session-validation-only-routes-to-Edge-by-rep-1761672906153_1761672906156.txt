@@ -1,0 +1,95 @@
+Your plan is sound. Keep bcrypt routes on Node. Move “session-validation-only” routes to Edge by replacing Node crypto with Web Crypto.
+
+Key adjustments
+
+Use Web Crypto everywhere for non-bcrypt ops. Node 18+ has globalThis.crypto, so serverless routes can use the same helpers.
+
+Standardize outputs. Pick base64url or hex and stick to it across Node and Edge.
+
+Avoid transitive Node imports in Edge routes. Don’t import files that import pg, fs, or bcrypt.
+
+Helper primitives (Edge-safe)
+
+Random bytes: crypto.getRandomValues(new Uint8Array(n))
+
+SHA-256: await crypto.subtle.digest('SHA-256', data)
+
+HMAC (for signed cookies/JWT-like tokens): crypto.subtle.importKey(... 'HMAC', {name:'HMAC', hash:'SHA-256'}, ...) then subtle.sign/subtle.verify
+
+Constant-time compare:
+
+export function ctEqual(a: Uint8Array, b: Uint8Array) {
+  if (a.length !== b.length) return false;
+  let v = 0;
+  for (let i = 0; i < a.length; i++) v |= a[i] ^ b[i];
+  return v === 0;
+}
+
+
+Encoding utils (no Buffer):
+
+export const te = new TextEncoder(), td = new TextDecoder();
+export const toHex = (u8: Uint8Array) => [...u8].map(x=>x.toString(16).padStart(2,'0')).join('');
+export const fromHex = (hex: string) => new Uint8Array(hex.match(/.{1,2}/g)!.map(b=>parseInt(b,16)));
+export const b64u = (u8: Uint8Array) => btoa(String.fromCharCode(...u8)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+export const unb64u = (s: string) => new Uint8Array(atob(s.replace(/-/g,'+').replace(/_/g,'/')).split('').map(c=>c.charCodeAt(0)));
+
+Apply to your files
+
+lib/session.ts
+
+Replace randomBytes(32) with getRandomValues.
+
+Replace createHash('sha256') with subtle.digest.
+
+If you sign session cookies, switch to HMAC-SHA256 via subtle. Store SESSION_SECRET as base64url and import to a CryptoKey on startup.
+
+lib/auth.ts
+
+Token gen = random bytes → base64url.
+
+Token hash = SHA-256(token) → store hash only.
+
+Keep bcrypt only where passwords are hashed or checked. Those routes stay Node runtime.
+
+Route split validation
+
+Edge (add export const runtime = 'edge'):
+
+/api/aircraft, /api/aircraft/[id], /api/auth/logout, /api/invites/[id], /api/invites/[id]/remove-aircraft
+
+Ensure they only: read cookies, verify HMAC/JWT via Web Crypto, call external fetches. No DB drivers or bcrypt import.
+
+Node (serverless):
+
+Auth and invite creation/verification routes using bcrypt or token hashing you keep server-side.
+
+Test checklist
+
+Unit test the crypto helpers in both Edge and Node runtimes.
+
+Round-trip session: sign → set cookie → read/verify on Edge route.
+
+Password flow on Node routes: signup/login/reset.
+
+Ensure bundling: no Node-only imports leak into Edge routes.
+
+Confirm Vercel “Functions” tab shows ≤ 12 Node functions.
+
+Risks to watch
+
+Output format mismatch (hex vs base64url) causing invalid verifies. Pick one and refactor consistently.
+
+cookies() API in Next Edge is supported. Avoid Buffer.
+
+jose is Edge-compatible; if HMAC/JWT code gets verbose, use jose for signing/verification on Edge and Node.
+
+Net result
+
+~8 Node functions.
+
+Most routes on Edge.
+
+Under Hobby cap.
+
+No behavior change for users.
