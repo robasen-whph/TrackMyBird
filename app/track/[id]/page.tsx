@@ -3,8 +3,6 @@
 import { useParams, useSearchParams } from 'next/navigation';
 import { SkyKeyApp } from '@/app/components/SkyKeyApp';
 
-export const runtime = 'edge';
-
 export default function TrackPage() {
   const params = useParams();
   const searchParams = useSearchParams();

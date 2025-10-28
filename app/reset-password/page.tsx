@@ -4,8 +4,6 @@ import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export const runtime = 'edge';
-
 function ResetPasswordForm() {
   const router = useRouter();
   const searchParams = useSearchParams();

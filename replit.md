@@ -33,7 +33,6 @@ The application is built with **Next.js 15.5.6 (App Router)** and **React 19.2.0
 -   **Email System**: Supports SMTP with development fallback to file transport.
 -   **Map Rendering**: Client-side only using dynamic imports for SSR optimization. Map UI enhancements include custom Leaflet controls, DivIcon-based labels with precise positioning, leader lines, and smart label placement. Duplicate dashed paths are prevented by using segment-boundary keys for `Polyline` components or imperative `ManagedPolyline` components.
 -   **Guest Token System**: Uses JSONB storage for multi-aircraft associations. Auto-revocation is enforced at validation. Smart deletion handling and per-aircraft removal are supported. Client-side SHA-256 hashing uses Web Crypto API with a `js-sha256` fallback.
--   **Vercel Deployment Optimization**: All 9 pages and 5 public API routes use Edge Runtime (unlimited). Currently 13 authenticated routes remain Node.js serverless due to session management using Node.js crypto module (13 total serverless functions). This is 1 over Vercel Hobby's 12-function limit. **Solution**: Refactor session management to use Web Crypto API (Edge-compatible) instead of Node.js crypto, which would reduce serverless count to 8 (6 auth + 2 invite routes that use bcrypt). Edge Runtime provides faster global performance with no function count limits.
 
 ## External Dependencies
 -   **FlightAware AeroAPI**: Primary source for real-time flight data, origin/destination, and IFR flight plans.

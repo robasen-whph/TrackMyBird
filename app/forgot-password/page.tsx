@@ -3,8 +3,6 @@
 import { useState } from 'react';
 import Link from 'next/link';
 
-export const runtime = 'edge';
-
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
