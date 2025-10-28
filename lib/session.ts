@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { db } from '@/db';
 import { sessions, users, type User } from '@/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
-import crypto from 'crypto';
+import { generateRandomToken, sha256 } from './crypto';
 
 const SESSION_COOKIE_NAME = 'trackmybird_session';
 const SESSION_TTL_24H = 24 * 60 * 60 * 1000; // 24 hours
@@ -21,10 +21,10 @@ export async function createSession(userId: number, remember: boolean = false): 
   const expiresAt = new Date(Date.now() + ttl);
 
   // Generate cryptographically secure session token
-  const sessionToken = crypto.randomBytes(32).toString('hex');
+  const sessionToken = generateRandomToken();
   
   // Hash the token for storage
-  const tokenHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
+  const tokenHash = await sha256(sessionToken);
 
   const [session] = await db
     .insert(sessions)
@@ -73,7 +73,7 @@ export async function getSession(): Promise<SessionData | null> {
   }
 
   // Hash the token from cookie
-  const tokenHash = crypto.createHash('sha256').update(sessionToken).digest('hex');
+  const tokenHash = await sha256(sessionToken);
 
   // Get session with user, validating both ID and token hash
   const [result] = await db
