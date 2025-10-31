@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { db } from '@/db';
 import { guestTokens, aircraft } from '@/db/schema';
