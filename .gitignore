@@ -9,3 +9,4 @@ dist/
 
 # Deployment files with secrets (template is safe to commit)
 pass-to-vercel.env
+.vercel
