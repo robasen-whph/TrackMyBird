@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomLimiter, getClientId } from "@/lib/rateLimiter";
 
-export const runtime = 'edge';
-
 /**
  * Random aircraft endpoint - TEMPORARILY DISABLED
  * 

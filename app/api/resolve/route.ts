@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { nNumberToIcao, isValidNNumber } from "@/lib/nnumber-converter";
 import { resolveLimiter, getClientId } from "@/lib/rateLimiter";
 
-export const runtime = 'edge';
-
 export async function GET(req: Request) {
   // Check rate limit (30 requests per minute)
   const clientId = getClientId(req);

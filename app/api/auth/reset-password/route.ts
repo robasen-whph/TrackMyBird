@@ -4,8 +4,6 @@ import { users, passwordResets } from '@/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import { hashToken, hashPassword } from '@/lib/auth';
 
-export const runtime = 'edge';
-
 export async function POST(request: Request) {
   try {
     const body = await request.json();
